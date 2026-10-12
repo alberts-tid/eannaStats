@@ -10,4 +10,4 @@ export const firebaseConfig = {
 
 // Clave de sitio de reCAPTCHA Enterprise registrada en Firebase Console → App Check.
 // Vacía = App Check desactivado (la IA fallará si App Check está forzado en AI Logic).
-export const appCheckSiteKey = '';
+export const appCheckSiteKey = '6LfBu-stAAAAADVCFNOQsQPxL0WRwOtjw5W8ea4A';
