@@ -174,16 +174,19 @@ $('btn-analyze').addEventListener('click', async () => {
 
 function describeError(err) {
   const msg = String(err?.message || err);
-  if (/SERVICE_DISABLED|has not been used|firebasevertexai/i.test(msg)) {
-    return 'Firebase AI Logic no está activado en el proyecto. Actívalo en Firebase Console → AI Logic → Get started (Gemini Developer API).';
+  const code = String(err?.code || '');
+  const detail = ` (Detalle: ${msg})`;
+  if (/api-not-enabled/.test(code) || /SERVICE_DISABLED|has not been used/i.test(msg)) {
+    return `Firebase AI Logic no está activado en el proyecto. Actívalo en Firebase Console → AI Logic → Get started (Gemini Developer API).${detail}`;
   }
-  if (/App Check|appCheck|UNAUTHENTICATED|401/i.test(msg)) {
+  if (/App Check|appCheck|app-check/i.test(msg + code)) {
     return appCheckSiteKey
-      ? 'App Check ha rechazado la petición. En localhost registra el token de depuración que aparece en la consola del navegador (F12) en Firebase Console → App Check → Administrar tokens de depuración.'
-      : 'AI Logic exige App Check y esta web no lo tiene configurado. Pon la clave de reCAPTCHA Enterprise en firebase-config.js (appCheckSiteKey) o desactiva temporalmente la aplicación forzosa de App Check para AI Logic.';
+      ? `App Check ha rechazado la petición. En localhost registra el token de depuración que aparece en la consola del navegador (F12) en Firebase Console → App Check → Administrar tokens de depuración.${detail}`
+      : `AI Logic exige App Check y esta web no lo tiene configurado.${detail}`;
   }
-  if (/API key|PERMISSION_DENIED|403/i.test(msg)) return `Permiso denegado por Firebase AI: ${msg}`;
-  if (/JSON/i.test(msg)) return 'La IA ha devuelto una respuesta que no es JSON válido. Vuelve a intentarlo.';
+  if (/not found|404/i.test(msg)) return `El modelo «${$('model').value.trim() || DEFAULT_MODEL}» no está disponible. Prueba otro en «Opciones».${detail}`;
+  if (/quota|429|RESOURCE_EXHAUSTED/i.test(msg)) return `Se ha superado la cuota de Gemini; espera un poco y vuelve a intentarlo.${detail}`;
+  if (/JSON/i.test(msg)) return `La IA ha devuelto una respuesta que no es JSON válido. Vuelve a intentarlo.${detail}`;
   return `Error al analizar: ${msg}`;
 }
 
