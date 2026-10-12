@@ -36,7 +36,8 @@ if (appCheckSiteKey && !emulatorHost) {
 const auth = getAuth(app);
 if (emulatorHost) connectAuthEmulator(auth, `http://${emulatorHost}:9099`, { disableWarnings: true });
 initStore(app, { emulatorHost });
-const ai = getAI(app, { backend: new GoogleAIBackend() });
+// AI Logic tiene la protección contra reutilización de App Check: solo acepta tokens de un solo uso.
+const ai = getAI(app, { backend: new GoogleAIBackend(), useLimitedUseAppCheckTokens: true });
 
 const $ = (id) => document.getElementById(id);
 const state = {
@@ -146,14 +147,21 @@ async function analyze() {
       temperature: 0,
       thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH },
     },
-  });
+  }, { timeout: 300000 });
   const extra = $('hint').value.trim();
   const prompt = extra ? `${EXTRACTION_PROMPT}\n\nExtra context from the user: ${extra}` : EXTRACTION_PROMPT;
-  const result = await model.generateContent([
-    prompt,
-    { inlineData: { data: state.image.base64, mimeType: state.image.mimeType } },
-  ]);
-  return JSON.parse(result.response.text());
+  const parts = [prompt, { inlineData: { data: state.image.base64, mimeType: state.image.mimeType } }];
+  const delays = [3000, 8000, 15000];
+  for (let attempt = 0; ; attempt++) {
+    try {
+      const result = await model.generateContent(parts);
+      return JSON.parse(result.response.text());
+    } catch (err) {
+      if (attempt >= delays.length || !isTransient(err)) throw err;
+      setStatus(`Gemini está saturado; reintentando (${attempt + 1}/${delays.length})…`, 'info');
+      await new Promise((r) => setTimeout(r, delays[attempt]));
+    }
+  }
 }
 
 $('btn-analyze').addEventListener('click', async () => {
@@ -172,6 +180,10 @@ $('btn-analyze').addEventListener('click', async () => {
   }
 });
 
+function isTransient(err) {
+  return /\[(500|503|429)\b|high demand|overloaded|UNAVAILABLE|RESOURCE_EXHAUSTED/i.test(String(err?.message || err));
+}
+
 function describeError(err) {
   const msg = String(err?.message || err);
   const code = String(err?.code || '');
@@ -185,6 +197,7 @@ function describeError(err) {
       : `AI Logic exige App Check y esta web no lo tiene configurado.${detail}`;
   }
   if (/not found|404/i.test(msg)) return `El modelo «${$('model').value.trim() || DEFAULT_MODEL}» no está disponible. Prueba otro en «Opciones».${detail}`;
+  if (/high demand|overloaded|UNAVAILABLE|\[50[03]/i.test(msg)) return `Gemini está saturado ahora mismo. Espera un minuto y vuelve a intentarlo, o prueba otro modelo en «Opciones».${detail}`;
   if (/quota|429|RESOURCE_EXHAUSTED/i.test(msg)) return `Se ha superado la cuota de Gemini; espera un poco y vuelve a intentarlo.${detail}`;
   if (/JSON/i.test(msg)) return `La IA ha devuelto una respuesta que no es JSON válido. Vuelve a intentarlo.${detail}`;
   return `Error al analizar: ${msg}`;
