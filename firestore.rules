@@ -1,0 +1,18 @@
+rules_version = '2';
+// Las reglas de Firestore son únicas por proyecto: desplegar este archivo SUSTITUYE todas las reglas.
+// Si el proyecto Firebase es el compartido con bqStats, no lo despliegues desde aquí; copia el bloque
+// acta_partits en las reglas de ese proyecto.
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Actas analizadas: cualquier usuario autenticado las lee y crea; solo el autor o el admin las modifican.
+    match /acta_partits/{docId} {
+      allow read: if request.auth != null;
+      allow create: if request.auth != null && request.resource.data.createdBy == request.auth.uid;
+      allow update: if request.auth != null
+        && request.resource.data.createdBy == resource.data.createdBy
+        && (resource.data.createdBy == request.auth.uid || request.auth.token.email == 'albertsinfreu@gmail.com');
+      allow delete: if request.auth != null
+        && (resource.data.createdBy == request.auth.uid || request.auth.token.email == 'albertsinfreu@gmail.com');
+    }
+  }
+}

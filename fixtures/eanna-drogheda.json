@@ -1,0 +1,485 @@
+{
+  "sheetType": "Basketball Ireland Official Underage Scoresheet",
+  "game": {
+    "competition": "Friendly",
+    "date": "19/09/2026",
+    "time": "14:40",
+    "venue": "Coláiste Éanna",
+    "referees": [
+      "Jay",
+      "Charles"
+    ]
+  },
+  "teams": [
+    {
+      "side": "A",
+      "name": "Éanna BC",
+      "coach": "Neville Charles",
+      "players": [
+        {
+          "number": "0",
+          "name": "Darragh Comiskey",
+          "fouls": 1,
+          "played": true
+        },
+        {
+          "number": "1",
+          "name": "Mark",
+          "fouls": 1,
+          "played": true
+        },
+        {
+          "number": "2",
+          "name": "Liam Walsh",
+          "fouls": 0,
+          "played": false
+        },
+        {
+          "number": "3",
+          "name": "Breen Bell",
+          "fouls": 2,
+          "played": true
+        },
+        {
+          "number": "6",
+          "name": "Jamie Charles",
+          "fouls": 2,
+          "played": true
+        },
+        {
+          "number": "11",
+          "name": "Phillip Carroll",
+          "fouls": 2,
+          "played": true
+        },
+        {
+          "number": "14",
+          "name": "Leon Prah",
+          "fouls": 1,
+          "played": true
+        },
+        {
+          "number": "17",
+          "name": "Sean Bolger",
+          "fouls": 0,
+          "played": true
+        },
+        {
+          "number": "18",
+          "name": "Ben Turkis",
+          "fouls": 2,
+          "played": true
+        },
+        {
+          "number": "28",
+          "name": "Rian Comerford",
+          "fouls": 3,
+          "played": true
+        }
+      ],
+      "scoring": [
+        {
+          "total": 2,
+          "jersey": "6",
+          "threePointer": false,
+          "freeThrow": false
+        },
+        {
+          "total": 4,
+          "jersey": "6",
+          "threePointer": false,
+          "freeThrow": false
+        },
+        {
+          "total": 6,
+          "jersey": "12",
+          "threePointer": false,
+          "freeThrow": false
+        },
+        {
+          "total": 8,
+          "jersey": "28",
+          "threePointer": false,
+          "freeThrow": false
+        },
+        {
+          "total": 9,
+          "jersey": "28",
+          "threePointer": false,
+          "freeThrow": true
+        },
+        {
+          "total": 10,
+          "jersey": "28",
+          "threePointer": false,
+          "freeThrow": true
+        },
+        {
+          "total": 12,
+          "jersey": "28",
+          "threePointer": false,
+          "freeThrow": false
+        },
+        {
+          "total": 15,
+          "jersey": "6",
+          "threePointer": true,
+          "freeThrow": false
+        },
+        {
+          "total": 16,
+          "jersey": "6",
+          "threePointer": false,
+          "freeThrow": true
+        },
+        {
+          "total": 18,
+          "jersey": "14",
+          "threePointer": false,
+          "freeThrow": false
+        },
+        {
+          "total": 20,
+          "jersey": "14",
+          "threePointer": false,
+          "freeThrow": false
+        },
+        {
+          "total": 22,
+          "jersey": "14",
+          "threePointer": false,
+          "freeThrow": false
+        },
+        {
+          "total": 24,
+          "jersey": "18",
+          "threePointer": false,
+          "freeThrow": false
+        },
+        {
+          "total": 26,
+          "jersey": "14",
+          "threePointer": false,
+          "freeThrow": false
+        },
+        {
+          "total": 28,
+          "jersey": "18",
+          "threePointer": false,
+          "freeThrow": false
+        },
+        {
+          "total": 30,
+          "jersey": "3",
+          "threePointer": false,
+          "freeThrow": false
+        },
+        {
+          "total": 32,
+          "jersey": "0",
+          "threePointer": false,
+          "freeThrow": false
+        },
+        {
+          "total": 34,
+          "jersey": "0",
+          "threePointer": false,
+          "freeThrow": false
+        },
+        {
+          "total": 36,
+          "jersey": "0",
+          "threePointer": false,
+          "freeThrow": false
+        },
+        {
+          "total": 39,
+          "jersey": "6",
+          "threePointer": true,
+          "freeThrow": false
+        },
+        {
+          "total": 41,
+          "jersey": "1",
+          "threePointer": false,
+          "freeThrow": false
+        },
+        {
+          "total": 42,
+          "jersey": "6",
+          "threePointer": false,
+          "freeThrow": true
+        },
+        {
+          "total": 43,
+          "jersey": "6",
+          "threePointer": false,
+          "freeThrow": true
+        },
+        {
+          "total": 45,
+          "jersey": "28",
+          "threePointer": false,
+          "freeThrow": false
+        },
+        {
+          "total": 47,
+          "jersey": "6",
+          "threePointer": false,
+          "freeThrow": false
+        },
+        {
+          "total": 48,
+          "jersey": "6",
+          "threePointer": false,
+          "freeThrow": true
+        },
+        {
+          "total": 50,
+          "jersey": "3",
+          "threePointer": false,
+          "freeThrow": false
+        },
+        {
+          "total": 52,
+          "jersey": "3",
+          "threePointer": false,
+          "freeThrow": false
+        },
+        {
+          "total": 54,
+          "jersey": "17",
+          "threePointer": false,
+          "freeThrow": false
+        },
+        {
+          "total": 56,
+          "jersey": "28",
+          "threePointer": false,
+          "freeThrow": false
+        },
+        {
+          "total": 57,
+          "jersey": "6",
+          "threePointer": false,
+          "freeThrow": true
+        },
+        {
+          "total": 58,
+          "jersey": "6",
+          "threePointer": false,
+          "freeThrow": true
+        },
+        {
+          "total": 60,
+          "jersey": "17",
+          "threePointer": false,
+          "freeThrow": false
+        },
+        {
+          "total": 62,
+          "jersey": "17",
+          "threePointer": false,
+          "freeThrow": false
+        },
+        {
+          "total": 64,
+          "jersey": "14",
+          "threePointer": false,
+          "freeThrow": false
+        },
+        {
+          "total": 66,
+          "jersey": "18",
+          "threePointer": false,
+          "freeThrow": false
+        },
+        {
+          "total": 67,
+          "jersey": "1",
+          "threePointer": false,
+          "freeThrow": true
+        },
+        {
+          "total": 69,
+          "jersey": "11",
+          "threePointer": false,
+          "freeThrow": false
+        },
+        {
+          "total": 71,
+          "jersey": "0",
+          "threePointer": false,
+          "freeThrow": false
+        },
+        {
+          "total": 73,
+          "jersey": "18",
+          "threePointer": false,
+          "freeThrow": false
+        },
+        {
+          "total": 75,
+          "jersey": "1",
+          "threePointer": false,
+          "freeThrow": false
+        },
+        {
+          "total": 76,
+          "jersey": "6",
+          "threePointer": false,
+          "freeThrow": true
+        },
+        {
+          "total": 78,
+          "jersey": "28",
+          "threePointer": false,
+          "freeThrow": false
+        },
+        {
+          "total": 81,
+          "jersey": "6",
+          "threePointer": true,
+          "freeThrow": false
+        },
+        {
+          "total": 83,
+          "jersey": "28",
+          "threePointer": false,
+          "freeThrow": false
+        },
+        {
+          "total": 86,
+          "jersey": "6",
+          "threePointer": true,
+          "freeThrow": false
+        },
+        {
+          "total": 88,
+          "jersey": "28",
+          "threePointer": false,
+          "freeThrow": false
+        },
+        {
+          "total": 90,
+          "jersey": "1",
+          "threePointer": false,
+          "freeThrow": false
+        },
+        {
+          "total": 92,
+          "jersey": "1",
+          "threePointer": false,
+          "freeThrow": false
+        },
+        {
+          "total": 94,
+          "jersey": "18",
+          "threePointer": false,
+          "freeThrow": false
+        },
+        {
+          "total": 96,
+          "jersey": "6",
+          "threePointer": false,
+          "freeThrow": false
+        },
+        {
+          "total": 98,
+          "jersey": "28",
+          "threePointer": false,
+          "freeThrow": false
+        },
+        {
+          "total": 100,
+          "jersey": "17",
+          "threePointer": false,
+          "freeThrow": false
+        },
+        {
+          "total": 102,
+          "jersey": "6",
+          "threePointer": false,
+          "freeThrow": false
+        },
+        {
+          "total": 103,
+          "jersey": "17",
+          "threePointer": false,
+          "freeThrow": true
+        },
+        {
+          "total": 104,
+          "jersey": "17",
+          "threePointer": false,
+          "freeThrow": true
+        },
+        {
+          "total": 106,
+          "jersey": "18",
+          "threePointer": false,
+          "freeThrow": false
+        },
+        {
+          "total": 108,
+          "jersey": "11",
+          "threePointer": false,
+          "freeThrow": false
+        },
+        {
+          "total": 110,
+          "jersey": "6",
+          "threePointer": false,
+          "freeThrow": false
+        },
+        {
+          "total": 112,
+          "jersey": "17",
+          "threePointer": false,
+          "freeThrow": false
+        },
+        {
+          "total": 114,
+          "jersey": "14",
+          "threePointer": false,
+          "freeThrow": false
+        }
+      ],
+      "quarterEndTotals": [
+        36,
+        64,
+        86,
+        114
+      ],
+      "quarterScores": [
+        36,
+        28,
+        22,
+        28
+      ],
+      "finalScore": 114
+    },
+    {
+      "side": "B",
+      "name": "Drogheda Wolves",
+      "players": [],
+      "scoring": [],
+      "quarterEndTotals": [
+        13,
+        21,
+        32,
+        38
+      ],
+      "quarterScores": [
+        13,
+        8,
+        11,
+        6
+      ],
+      "finalScore": 38
+    }
+  ],
+  "notes": [
+    "Demo: lectura revisada a mano del acta Éanna BC vs Drogheda Wolves (solo el marcador de Éanna)."
+  ]
+}
