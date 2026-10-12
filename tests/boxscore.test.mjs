@@ -95,6 +95,7 @@ test('acumula estadísticas por jugador entre partidos', () => {
           { number: '6', name: 'Jamie Charles', fouls: 4, played: true },
           { number: '2', name: 'Liam Walsh', fouls: 1, played: true },
           { number: '9', name: 'New Kid', fouls: 0, played: false },
+          { number: '17', name: 'Sean Bolger', fouls: 2, played: false },
         ],
         scoring: [
           { total: 3, jersey: '6', threePointer: true },
@@ -134,6 +135,9 @@ test('acumula estadísticas por jugador entre partidos', () => {
   const liam = agg.rows.find((r) => r.name === 'Liam Walsh');
   assert.deepEqual([liam.gp, liam.pts, liam.fouls], [1, 2, 1]);
   assert.deepEqual(liam.perGame, [null, 2, null]);
+  const sean = agg.rows.find((r) => r.name === 'Sean Bolger');
+  assert.deepEqual([sean.gp, sean.pts, sean.fouls], [2, 12, 2]);
+  assert.deepEqual(sean.perGame, [12, 0, null]);
   const kid = agg.rows.find((r) => r.name === 'New Kid');
   assert.equal(kid.gp, 0);
   assert.ok(agg.rows.some((r) => !r.onRoster && r.number === '12'));

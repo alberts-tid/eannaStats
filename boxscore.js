@@ -128,7 +128,7 @@ export function computeTeamBoxScore(team) {
 
   for (const line of lines.values()) {
     if (line.played === null) line.played = line.pts > 0 || (line.fouls || 0) > 0;
-    else if (line.pts > 0) line.played = true;
+    else if (line.pts > 0 || (line.fouls || 0) > 0) line.played = true;
   }
 
   const rows = [...lines.values()].sort((a, b) => {
