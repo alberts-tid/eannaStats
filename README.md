@@ -32,6 +32,15 @@ Proyecto Firebase: `eannastats` (configuración web en `firebase-config.js`).
 3. **Authentication** → Email/Password y crea los usuarios.
 4. **Firestore**: crea la base de datos y publica `firestore.rules` (pegándolo en la pestaña Reglas o con `npx firebase-tools deploy --only firestore:rules`).
 
+## Publicar con Firebase Hosting (repo privado)
+
+```bash
+npx firebase-tools login
+npx firebase-tools deploy --only hosting
+```
+
+Queda en `https://eannastats.web.app`. Ese dominio ya está autorizado en Authentication.
+
 ## GitHub Pages
 
 Settings → Pages → Deploy from a branch → `main` / raíz. Añade `<usuario>.github.io` a los dominios autorizados de Firebase Authentication.
