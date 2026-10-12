@@ -1,5 +1,8 @@
 import { initializeApp } from 'https://www.gstatic.com/firebasejs/13.0.0/firebase-app.js';
 import {
+  initializeAppCheck, ReCaptchaEnterpriseProvider,
+} from 'https://www.gstatic.com/firebasejs/13.0.0/firebase-app-check.js';
+import {
   getAuth, connectAuthEmulator, onAuthStateChanged, signInWithEmailAndPassword, signOut,
 } from 'https://www.gstatic.com/firebasejs/13.0.0/firebase-auth.js';
 import {
@@ -11,7 +14,7 @@ import {
 import { initStore, listGames, saveGame, deleteGame } from './store.js';
 import { EXTRACTION_PROMPT, buildResponseSchema } from './prompt.js';
 import { renderBoxScoreCanvas, playerLabel, defaultNotes } from './render.js';
-import { firebaseConfig } from './firebase-config.js';
+import { firebaseConfig, appCheckSiteKey } from './firebase-config.js';
 
 const DEFAULT_MODEL = 'gemini-3.7-flash';
 const MAX_SIDE = 3072;
@@ -21,6 +24,15 @@ const params = new URLSearchParams(location.search);
 const emulatorHost = params.has('emulator') ? (params.get('emulator') || '127.0.0.1') : null;
 
 const app = initializeApp(firebaseConfig);
+if (appCheckSiteKey && !emulatorHost) {
+  // En localhost reCAPTCHA no da tokens válidos: el SDK imprime en la consola un token de depuración
+  // que hay que registrar en Firebase Console → App Check → Apps → Administrar tokens de depuración.
+  if (['localhost', '127.0.0.1'].includes(location.hostname)) self.FIREBASE_APPCHECK_DEBUG_TOKEN = true;
+  initializeAppCheck(app, {
+    provider: new ReCaptchaEnterpriseProvider(appCheckSiteKey),
+    isTokenAutoRefreshEnabled: true,
+  });
+}
 const auth = getAuth(app);
 if (emulatorHost) connectAuthEmulator(auth, `http://${emulatorHost}:9099`, { disableWarnings: true });
 initStore(app, { emulatorHost });
@@ -164,6 +176,11 @@ function describeError(err) {
   const msg = String(err?.message || err);
   if (/SERVICE_DISABLED|has not been used|firebasevertexai/i.test(msg)) {
     return 'Firebase AI Logic no está activado en el proyecto. Actívalo en Firebase Console → AI Logic → Get started (Gemini Developer API).';
+  }
+  if (/App Check|appCheck|UNAUTHENTICATED|401/i.test(msg)) {
+    return appCheckSiteKey
+      ? 'App Check ha rechazado la petición. En localhost registra el token de depuración que aparece en la consola del navegador (F12) en Firebase Console → App Check → Administrar tokens de depuración.'
+      : 'AI Logic exige App Check y esta web no lo tiene configurado. Pon la clave de reCAPTCHA Enterprise en firebase-config.js (appCheckSiteKey) o desactiva temporalmente la aplicación forzosa de App Check para AI Logic.';
   }
   if (/API key|PERMISSION_DENIED|403/i.test(msg)) return `Permiso denegado por Firebase AI: ${msg}`;
   if (/JSON/i.test(msg)) return 'La IA ha devuelto una respuesta que no es JSON válido. Vuelve a intentarlo.';

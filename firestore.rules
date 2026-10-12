@@ -1,7 +1,4 @@
 rules_version = '2';
-// Las reglas de Firestore son únicas por proyecto: desplegar este archivo SUSTITUYE todas las reglas.
-// Si el proyecto Firebase es el compartido con bqStats, no lo despliegues desde aquí; copia el bloque
-// acta_partits en las reglas de ese proyecto.
 service cloud.firestore {
   match /databases/{database}/documents {
     // Actas analizadas: cualquier usuario autenticado las lee y crea; solo el autor o el admin las modifican.

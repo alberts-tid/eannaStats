@@ -1,12 +1,13 @@
 // Configuración web de Firebase (es pública por diseño; la seguridad la dan las reglas de Firestore y App Check).
-// Ahora apunta al proyecto compartido con bqStats. Para un proyecto propio, sustituye estos valores
-// por los de Firebase Console → Configuración del proyecto → Tus apps → Web.
 export const firebaseConfig = {
-  apiKey: 'AIzaSyBztTVwG-naLX6h_qsxFi8wIwk4dxwFROQ',
-  authDomain: 'estadistiquesbasquet-ef068.firebaseapp.com',
-  projectId: 'estadistiquesbasquet-ef068',
-  storageBucket: 'estadistiquesbasquet-ef068.firebasestorage.app',
-  messagingSenderId: '945263085225',
-  appId: '1:945263085225:web:a22b2759f96db52e9e4bb8',
-  measurementId: 'G-3QTM4YRB3F',
+  apiKey: 'AIzaSyApisr_Iaqzk6v_cf88zkyNHLHNlvaWZ_w',
+  authDomain: 'eannastats.firebaseapp.com',
+  projectId: 'eannastats',
+  storageBucket: 'eannastats.firebasestorage.app',
+  messagingSenderId: '584908523071',
+  appId: '1:584908523071:web:1d6c5be5acc7a68ec05a8a',
 };
+
+// Clave de sitio de reCAPTCHA Enterprise registrada en Firebase Console → App Check.
+// Vacía = App Check desactivado (la IA fallará si App Check está forzado en AI Logic).
+export const appCheckSiteKey = '';

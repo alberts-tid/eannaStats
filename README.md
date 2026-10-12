@@ -25,10 +25,12 @@ Tests: `npm test`.
 
 ## Configurar Firebase
 
-1. `firebase-config.js` tiene la configuración web. Ahora apunta al proyecto compartido con bqStats (`estadistiquesbasquet-ef068`); para un proyecto propio, cambia esos valores.
-2. Activa **Firebase AI Logic** en la consola (AI Logic → Get started → Gemini Developer API). Recomendado: App Check.
-3. Activa **Authentication → Email/Password** y crea los usuarios.
-4. Reglas de Firestore: `firestore.rules` solo contiene la colección `acta_partits`. En un proyecto propio: `npx firebase-tools deploy --only firestore:rules --project <id>`. En el proyecto compartido con bqStats **no lo despliegues** (borraría sus reglas); copia el bloque `acta_partits` en las reglas de ese proyecto.
+Proyecto Firebase: `eannastats` (configuración web en `firebase-config.js`).
+
+1. **AI Logic** → Get started → Gemini Developer API.
+2. **App Check**: registra la app web con reCAPTCHA Enterprise y pon la clave de sitio en `appCheckSiteKey` (`firebase-config.js`). Si AI Logic tiene App Check forzado y la web no lo tiene configurado, la IA devuelve 401. En `localhost`, el SDK imprime un token de depuración en la consola del navegador: regístralo en App Check → Administrar tokens de depuración.
+3. **Authentication** → Email/Password y crea los usuarios.
+4. **Firestore**: crea la base de datos y publica `firestore.rules` (pegándolo en la pestaña Reglas o con `npx firebase-tools deploy --only firestore:rules`).
 
 ## GitHub Pages
 
@@ -37,7 +39,7 @@ Settings → Pages → Deploy from a branch → `main` / raíz. Añade `<usuario
 ## Probar con emuladores (sin tocar datos reales)
 
 ```bash
-npx firebase-tools emulators:start --only auth,firestore --project estadistiquesbasquet-ef068
+npx firebase-tools emulators:start --only auth,firestore --project eannastats
 curl -s -X POST "http://127.0.0.1:9099/identitytoolkit.googleapis.com/v1/accounts:signUp?key=fake" \
   -H 'Content-Type: application/json' -d '{"email":"coach@test.com","password":"test1234","returnSecureToken":true}'
 ```
