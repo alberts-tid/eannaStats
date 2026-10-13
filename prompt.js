@@ -7,7 +7,7 @@ How to read the RUNNING SCORE section:
 - The end of each period is marked by a thick circle around the score and/or a line under it; ink often changes colour between periods (red for Q1/Q3, blue or black for Q2/Q4).
 - Only cumulative scores that were actually reached are marked. Skip unmarked numbers.
 
-For every team, list EVERY scoring entry in the running score in increasing order of cumulative total: { total, jersey, threePointer, freeThrow }. "total" is the team's cumulative score after that basket. Read jersey digits carefully; they must normally be one of the jersey numbers on that team's roster. If a digit is ambiguous, pick the roster number that best matches the handwriting and mention the doubt in "notes". If a jersey is illegible, use "?".
+For every team, list EVERY scoring entry in the running score in increasing order of cumulative total: { total, jersey, threePointer, freeThrow }. Do this for BOTH teams, including the away column. "total" is the team's cumulative score after that basket. The first marked row is often 2, not a later number: if row 2 (or any earlier row) has a jersey written, it must be in the list. Read jersey digits carefully; they must normally be one of the jersey numbers on that team's roster. If a digit is ambiguous, pick the roster number that best matches the handwriting and mention the doubt in "notes". If a jersey is illegible, use "?".
 
 Consecutive totals usually differ by 1, 2 or 3. A jump of 4 or more almost always means you skipped a marked row: re-check before answering.
 

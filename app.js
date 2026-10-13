@@ -15,7 +15,7 @@ import { initStore, listGames, saveGame, deleteGame } from './store.js';
 import { EXTRACTION_PROMPT, buildResponseSchema } from './prompt.js';
 import { renderBoxScoreCanvas, playerLabel, defaultNotes } from './render.js';
 import { firebaseConfig, appCheckSiteKey } from './firebase-config.js';
-import { lineBox, locateRunningScore } from './sheetlines.js';
+import { lineBox, locateRunningScore, missingInkedTotals } from './sheetlines.js';
 import { busyNote, describeAiError, isTransient, retryMessage } from './ai-errors.js';
 
 const DEFAULT_MODEL = 'gemini-3.7-flash';
@@ -132,7 +132,10 @@ async function loadImage(file) {
   $('drop').title = 'Cambiar foto';
   setStatus('');
   updateAnalyzeButton();
-  if (state.box && !state.currentId) renderEditor();
+  if (state.extraction && !state.currentId) {
+    recoverSkippedLines();
+    recompute();
+  }
 }
 
 function buildSheet(source) {
@@ -169,16 +172,45 @@ function paintSheetLine(canvas, source, box) {
 
 let sheetCache = null;
 
-function runningPhoto(team) {
-  const sheet = state.image?.sheet;
-  if (!sheet || state.currentId || !team?.scoring?.length) return null;
-  const side = team.side === 'B' ? 'B' : 'A';
-  const totals = team.scoring.map((e) => parseInt(e.total, 10)).filter((t) => t > 0);
+function sheetGrid(sheet) {
+  const teams = state.extraction?.teams || [];
+  const richer = [...teams].sort((a, b) => (b.scoring?.length || 0) - (a.scoring?.length || 0))[0];
+  const side = richer?.side === 'B' ? 'B' : 'A';
+  const totals = (richer?.scoring || []).map((e) => parseInt(e.total, 10)).filter((t) => t > 0);
   const key = `${side}|${totals.join(',')}|${sheet.width}x${sheet.height}`;
   if (!sheetCache || sheetCache.key !== key || sheetCache.sheet !== sheet) {
     sheetCache = { key, sheet, grid: locateRunningScore(sheet.gray, sheet.width, sheet.height, totals, { side }) };
   }
-  return sheetCache.grid ? { grid: sheetCache.grid, canvas: sheet.canvas } : null;
+  return sheetCache.grid;
+}
+
+function runningPhoto(team) {
+  const sheet = state.image?.sheet;
+  if (!sheet || state.currentId || !team?.scoring?.length) return null;
+  const grid = sheetGrid(sheet);
+  return grid ? { grid, canvas: sheet.canvas } : null;
+}
+
+// Si la lectura se salta una fila escrita (el 2, u otra), la añade para que se pueda corregir.
+function recoverSkippedLines() {
+  const sheet = state.image?.sheet;
+  if (!sheet || state.currentId || !state.extraction?.teams) return false;
+  const grid = sheetGrid(sheet);
+  if (!grid) return false;
+  let added = false;
+  for (const team of state.extraction.teams) {
+    const side = team.side === 'B' ? 'B' : 'A';
+    const existing = (team.scoring || []).map((e) => e.total);
+    const missing = missingInkedTotals(sheet.gray, sheet.width, sheet.height, grid, existing, side, team.finalScore);
+    if (!missing.length) continue;
+    team.scoring = team.scoring || [];
+    for (const total of missing) {
+      team.scoring.push({ total, jersey: '', threePointer: false, freeThrow: false });
+    }
+    added = true;
+  }
+  if (added) sheetCache = null;
+  return added;
 }
 
 $('file').addEventListener('change', (ev) => loadImage(ev.target.files[0]));
@@ -288,6 +320,7 @@ function setExtraction(extraction, { savedId = null } = {}) {
   $('save-status').hidden = true;
   updateSavedBanner();
   updateSaveButtons();
+  recoverSkippedLines();
   $('json').value = JSON.stringify(extraction, null, 2);
   recompute();
 }

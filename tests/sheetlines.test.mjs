@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { lineBox, locateRunningScore } from '../sheetlines.js';
+import { lineBox, locateRunningScore, missingInkedTotals } from '../sheetlines.js';
 
 function paintSheet() {
   const width = 320;
@@ -38,6 +38,13 @@ test('encuentra la fila real de cada marcador en una plantilla de 40', () => {
   assert.equal(box86.block, 2);
   assert.ok(box86.x > box15.x);
   assert.ok(Math.abs((box15.y + box15.h / 2) - (sheet.top + 14.5 * sheet.pitch)) < 3);
+});
+
+test('recupera la línea del 2 si la lectura empieza más tarde', () => {
+  const sheet = paintSheet();
+  const grid = locateRunningScore(sheet.gray, sheet.width, sheet.height, sheet.totals, { side: 'A' });
+  const missing = missingInkedTotals(sheet.gray, sheet.width, sheet.height, grid, [6, 15, 36], 'A');
+  assert.deepEqual(missing, [2]);
 });
 
 test('una foto en blanco no inventa líneas', () => {

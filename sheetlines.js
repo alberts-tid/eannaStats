@@ -152,6 +152,48 @@ export function locateRunningScore(gray, width, height, totals, { side = 'A' } =
   return { top: fine.top, pitch: fine.pitch, x: fine.x, blockWidth: fine.bw, rows: ROWS, score: fine.v };
 }
 
+const INK = 76;
+
+function inkMean(ii, width, grid, total, side) {
+  const t = parseInt(total, 10);
+  if (!Number.isFinite(t) || t < 1) return 0;
+  const row = (t - 1) % grid.rows;
+  const block = Math.floor((t - 1) / grid.rows);
+  const a0 = side === 'B' ? 0.66 : 0.02;
+  const a1 = side === 'B' ? 0.92 : 0.34;
+  const yBase = grid.top + row * grid.pitch;
+  const xBase = grid.x + block * grid.blockWidth;
+  return rectMean(
+    ii, width,
+    yBase + grid.pitch * 0.35, yBase + grid.pitch * 0.75,
+    xBase + grid.blockWidth * a0, xBase + grid.blockWidth * a1,
+  );
+}
+
+/**
+ * Totales que tienen tinta y la lectura se ha saltado: antes del primer
+ * marcador, en un salto de 4 o más, o entre el último y el resultado final.
+ */
+export function missingInkedTotals(gray, width, height, grid, existing, side = 'A', upTo = null) {
+  if (!grid) return [];
+  const have = [...new Set(existing.map((t) => parseInt(t, 10)).filter((t) => t > 0))].sort((a, b) => a - b);
+  const candidates = [];
+  const first = have[0] ?? 0;
+  for (let t = 1; t < first; t++) candidates.push(t);
+  for (let i = 0; i < have.length - 1; i++) {
+    if (have[i + 1] - have[i] >= 4) {
+      for (let t = have[i] + 1; t < have[i + 1]; t++) candidates.push(t);
+    }
+  }
+  const last = have.at(-1) ?? 0;
+  const end = parseInt(upTo, 10);
+  if (Number.isFinite(end) && end > last) {
+    for (let t = last + 1; t <= Math.min(end, grid.rows * 4); t++) candidates.push(t);
+  }
+  const ii = integral(gray, width, height);
+  return candidates.filter((t) => inkMean(ii, width, grid, t, side) >= INK);
+}
+
 /** Recuadro, en píxeles de `gray`, de la línea real que contiene ese marcador. */
 export function lineBox(grid, total) {
   const t = parseInt(total, 10);

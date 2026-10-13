@@ -43,7 +43,18 @@ test('reproduce el box score Éanna BC 114-38', () => {
   }
   assert.equal(eanna.rows[0].number, '6');
   assert.equal(eanna.rows.find((r) => r.number === '12').onRoster, false);
-  assert.equal(box.teams[1].hasScoring, false);
+
+  const wolves = box.teams[1];
+  assert.equal(wolves.totals.pts, 38);
+  assert.deepEqual(wolves.totals.quarters, [13, 8, 11, 6]);
+  assert.equal(wolves.totals.fg2, 11);
+  assert.equal(wolves.totals.fg3, 2);
+  assert.equal(wolves.totals.ftm, 10);
+  assert.deepEqual(line(wolves, '4'), [2, 1, 0, 0, null, 2, 0, 0, 0]);
+  assert.deepEqual(line(wolves, '3'), [6, 0, 2, 0, null, 6, 0, 0, 0]);
+  assert.deepEqual(line(wolves, '15'), [9, 4, 0, 1, null, 2, 0, 7, 0]);
+  assert.deepEqual(line(wolves, '12'), [8, 3, 0, 2, null, 0, 4, 2, 2]);
+  assert.deepEqual(line(wolves, '1'), [4, 2, 0, 0, null, 0, 0, 0, 4]);
 });
 
 test('avisa de saltos imposibles y de cuartos que no cuadran', () => {

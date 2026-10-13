@@ -463,7 +463,31 @@
       "side": "B",
       "name": "Drogheda Wolves",
       "players": [],
-      "scoring": [],
+      "scoring": [
+        { "total": 2, "jersey": "4", "threePointer": false, "freeThrow": false },
+        { "total": 5, "jersey": "3", "threePointer": true, "freeThrow": false },
+        { "total": 6, "jersey": "11", "threePointer": false, "freeThrow": true },
+        { "total": 8, "jersey": "15", "threePointer": false, "freeThrow": false },
+        { "total": 11, "jersey": "3", "threePointer": true, "freeThrow": false },
+        { "total": 12, "jersey": "11", "threePointer": false, "freeThrow": true },
+        { "total": 13, "jersey": "10", "threePointer": false, "freeThrow": true },
+        { "total": 15, "jersey": "12", "threePointer": false, "freeThrow": false },
+        { "total": 17, "jersey": "10", "threePointer": false, "freeThrow": false },
+        { "total": 18, "jersey": "12", "threePointer": false, "freeThrow": true },
+        { "total": 19, "jersey": "12", "threePointer": false, "freeThrow": true },
+        { "total": 20, "jersey": "11", "threePointer": false, "freeThrow": true },
+        { "total": 21, "jersey": "14", "threePointer": false, "freeThrow": true },
+        { "total": 22, "jersey": "11", "threePointer": false, "freeThrow": true },
+        { "total": 23, "jersey": "11", "threePointer": false, "freeThrow": true },
+        { "total": 24, "jersey": "15", "threePointer": false, "freeThrow": true },
+        { "total": 26, "jersey": "12", "threePointer": false, "freeThrow": false },
+        { "total": 28, "jersey": "15", "threePointer": false, "freeThrow": false },
+        { "total": 30, "jersey": "15", "threePointer": false, "freeThrow": false },
+        { "total": 32, "jersey": "15", "threePointer": false, "freeThrow": false },
+        { "total": 34, "jersey": "1", "threePointer": false, "freeThrow": false },
+        { "total": 36, "jersey": "1", "threePointer": false, "freeThrow": false },
+        { "total": 38, "jersey": "12", "threePointer": false, "freeThrow": false }
+      ],
       "quarterEndTotals": [
         13,
         21,
@@ -480,6 +504,6 @@
     }
   ],
   "notes": [
-    "Demo: lectura revisada a mano del acta Éanna BC vs Drogheda Wolves (solo el marcador de Éanna)."
+    "Demo: lectura revisada a mano del acta Éanna BC vs Drogheda Wolves, running score de los dos equipos."
   ]
 }
