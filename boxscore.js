@@ -251,6 +251,23 @@ function sumAgainst(matches, field) {
   return { total: known.reduce((a, v) => a + v, 0), games: known.length };
 }
 
+function sumFavor(matches, field) {
+  const known = matches.filter((m) => m.team.hasScoring);
+  return { total: known.reduce((a, m) => a + (m.team.totals[field] || 0), 0), games: known.length };
+}
+
+/** El acumulado del portal es siempre el de Éanna, esté escrita como «Éanna BC» o «EANNA». */
+export function findEannaKey(games) {
+  const keys = [];
+  for (const g of games || []) {
+    for (const t of g.extraction?.teams || []) {
+      const k = teamKey(t.name);
+      if ((k === 'eanna' || k.startsWith('eanna ')) && !keys.includes(k)) keys.push(k);
+    }
+  }
+  return keys.find((k) => k === 'eanna bc') || keys[0] || 'eanna bc';
+}
+
 export function listTeams(games) {
   const teams = new Map();
   for (const g of games) {
@@ -332,6 +349,11 @@ export function aggregateTeam(games, key) {
     gamesWithStats: scored.length,
     pointsFor: matches.reduce((a, m) => a + (m.pointsFor || 0), 0),
     pointsAgainst: matches.reduce((a, m) => a + (m.pointsAgainst || 0), 0),
+    favor: {
+      fg2: sumFavor(matches, 'fg2'),
+      fg3: sumFavor(matches, 'fg3'),
+      ftm: sumFavor(matches, 'ftm'),
+    },
     against: {
       points: sumAgainst(matches, 'points'),
       fg2: sumAgainst(matches, 'fg2'),

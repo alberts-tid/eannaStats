@@ -9,7 +9,7 @@ import {
   getAI, getGenerativeModel, GoogleAIBackend, Schema, ThinkingLevel,
 } from 'https://www.gstatic.com/firebasejs/13.0.0/firebase-ai.js';
 import {
-  computeBoxScore, aggregateTeam, listTeams, teamKey, opponentLine, QUARTER_LABELS,
+  computeBoxScore, aggregateTeam, listTeams, teamKey, findEannaKey, opponentLine, QUARTER_LABELS,
 } from './boxscore.js';
 import { initStore, listGames, saveGame, deleteGame } from './store.js';
 import { EXTRACTION_PROMPT, buildResponseSchema } from './prompt.js';
@@ -786,7 +786,7 @@ function renderSaved() {
 
   const agg = aggregateTeam(state.games, key);
   renderGamesList(agg);
-  renderTotals(agg);
+  renderTotals(aggregateTeam(state.games, findEannaKey(state.games)));
   renderPublicDetail();
 }
 
@@ -861,15 +861,25 @@ function renderAgainstTable(agg) {
     </table>`;
 }
 
+function favorShot(label, stat, each, n) {
+  const scope = stat.games && stat.games < n ? ` · ${stat.games} de ${n}` : '';
+  const pts = stat.games ? ` · ${stat.total * each} pts` : '';
+  return [`${label}${pts}${scope}`, stat.games ? String(stat.total) : '—'];
+}
+
 function renderTotals(agg) {
   const n = agg.matches.length;
   const stats = [
     ['Partidos', n],
     ['Balance', `${agg.record.w}-${agg.record.l}`],
     ['Puntos a favor / partido', fmt1(n ? agg.pointsFor / n : NaN)],
+    favorShot('Tiros de 2 a favor', agg.favor.fg2, 2, n),
+    favorShot('Tiros de 3 a favor', agg.favor.fg3, 3, n),
+    favorShot('Tiros de 1 a favor', agg.favor.ftm, 1, n),
     ['Puntos en contra / partido', fmt1(n ? agg.pointsAgainst / n : NaN)],
     againstStat('Tiros de 2 en contra', agg.against.fg2, n),
     againstStat('Tiros de 3 en contra', agg.against.fg3, n),
+    againstStat('Tiros de 1 en contra', agg.against.ftm, n),
     againstStat('Faltas en contra', agg.against.fouls, n),
     ['Con estadísticas', `${agg.gamesWithStats} de ${n}`],
   ];
@@ -904,6 +914,7 @@ function renderTotals(agg) {
   }), { pts: 0, fg2: 0, fg3: 0, ftm: 0, fouls: 0 });
   const g = agg.gamesWithStats;
   $('totals-table').innerHTML = `
+    <h3>A favor · Éanna</h3>
     <table class="box">
       <thead><tr><th class="left">#</th><th class="left">Player</th><th>PJ</th><th>PTS</th><th class="avg">PTS/PJ</th><th>2PM</th><th>3PM</th><th>FTM</th><th>Fouls</th><th class="avg">F/PJ</th></tr></thead>
       <tbody>${body}</tbody>
