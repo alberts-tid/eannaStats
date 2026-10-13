@@ -363,7 +363,7 @@ function scoreLine(box, teamIndex = state.teamIndex) {
   return other ? `${t.finalScore} – ${other.finalScore}` : String(t.finalScore);
 }
 
-function boxTableHtml(box, teamIndex) {
+function boxTableHtml(box, teamIndex, { against = true } = {}) {
   const team = box.teams[teamIndex];
   if (!team) return '';
   if (!team.hasScoring) return '<p class="muted">No se ha leído ninguna anotación de este equipo en el marcador.</p>';
@@ -378,11 +378,12 @@ function boxTableHtml(box, teamIndex) {
     </tr>`).join('');
   const t = team.totals;
   const own = `<tr><td></td><td>TOTAL</td>${[t.pts, t.fg2, t.fg3, t.ftm, t.fouls, ...t.quarters].map((v) => `<td>${v}</td>`).join('')}</tr>`;
+  const versus = against ? againstFoot(box, teamIndex) : '';
   return `
     <table class="box">
       <thead><tr>${head.map((h, i) => `<th class="${i < 2 ? 'left' : ''}">${h}</th>`).join('')}</tr></thead>
       <tbody>${body}</tbody>
-      <tfoot>${own}${againstFoot(box, teamIndex)}</tfoot>
+      <tfoot>${own}${versus}</tfoot>
     </table>
     <ul class="notes">${defaultNotes(team).map((n) => `<li>${esc(n)}</li>`).join('')}</ul>`;
 }
@@ -513,7 +514,7 @@ $('btn-apply-json').addEventListener('click', () => {
   }
 });
 
-async function downloadJpg(box, teamIndex) {
+async function downloadJpg(box, teamIndex, { against = true } = {}) {
   await document.fonts.ready;
   const team = box.teams[teamIndex];
   const canvas = renderBoxScoreCanvas(team, {
@@ -521,7 +522,7 @@ async function downloadJpg(box, teamIndex) {
     subtitle: gameSubtitle(box, teamIndex),
     score: scoreLine(box, teamIndex),
     badge: 'FINAL',
-    against: opponentLine(box.teams.find((_, i) => i !== teamIndex)),
+    against: against ? opponentLine(box.teams.find((_, i) => i !== teamIndex)) : null,
   });
   canvas.toBlob((blob) => {
     const a = document.createElement('a');
@@ -532,17 +533,17 @@ async function downloadJpg(box, teamIndex) {
   }, 'image/jpeg', 0.93);
 }
 
-function downloadCsv(box, teamIndex) {
+function downloadCsv(box, teamIndex, { against = true } = {}) {
   const team = box.teams[teamIndex];
   const header = ['Number', 'Player', 'PTS', '2PM', '3PM', 'FTM', 'Fouls', ...QUARTER_LABELS];
   const lines = [header, ...team.rows.map((r) => [r.number, playerLabel(r), r.pts, r.fg2, r.fg3, r.ftm, r.fouls ?? '', ...r.quarters])];
   const t = team.totals;
   lines.push(['', 'TOTAL', t.pts, t.fg2, t.fg3, t.ftm, t.fouls, ...t.quarters]);
-  const against = opponentLine(box.teams.find((_, i) => i !== teamIndex));
-  if (against) {
+  const rival = against ? opponentLine(box.teams.find((_, i) => i !== teamIndex)) : null;
+  if (rival) {
     const cell = (v) => (v === null || v === undefined ? '' : v);
-    const quarters = against.quarters || [null, null, null, null];
-    lines.push(['', `En contra${against.name ? ` · ${against.name}` : ''}`, cell(against.points), cell(against.fg2), cell(against.fg3), cell(against.ftm), cell(against.fouls), ...quarters.map(cell)]);
+    const quarters = rival.quarters || [null, null, null, null];
+    lines.push(['', `En contra${rival.name ? ` · ${rival.name}` : ''}`, cell(rival.points), cell(rival.fg2), cell(rival.fg3), cell(rival.ftm), cell(rival.fouls), ...quarters.map(cell)]);
   }
   const csv = lines.map((l) => l.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
   const a = document.createElement('a');
@@ -737,7 +738,7 @@ function renderPublicDetail() {
   $('public-name').textContent = team?.name || 'Equipo';
   $('public-sub').textContent = gameSubtitle(box, state.readTeam);
   $('public-score').textContent = scoreLine(box, state.readTeam);
-  $('public-table').innerHTML = boxTableHtml(box, state.readTeam);
+  $('public-table').innerHTML = boxTableHtml(box, state.readTeam, { against: false });
   const manage = canManage(game);
   $('btn-edit-game').hidden = !manage;
   $('btn-delete-public').hidden = !manage;
@@ -750,11 +751,11 @@ $('btn-close-game').addEventListener('click', () => {
 $('btn-edit-game').addEventListener('click', () => editGame(state.readingId));
 $('btn-public-jpg').addEventListener('click', () => {
   const game = readingGame();
-  if (game?.extraction) downloadJpg(computeBoxScore(game.extraction), state.readTeam);
+  if (game?.extraction) downloadJpg(computeBoxScore(game.extraction), state.readTeam, { against: false });
 });
 $('btn-public-csv').addEventListener('click', () => {
   const game = readingGame();
-  if (game?.extraction) downloadCsv(computeBoxScore(game.extraction), state.readTeam);
+  if (game?.extraction) downloadCsv(computeBoxScore(game.extraction), state.readTeam, { against: false });
 });
 
 function renderSaved() {
