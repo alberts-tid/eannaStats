@@ -11,9 +11,10 @@ For every team, list EVERY scoring entry in the running score in increasing orde
 
 Consecutive totals usually differ by 1, 2 or 3. A jump of 4 or more almost always means you skipped a marked row: re-check before answering.
 
-Also read:
-- Team names (A = home/left, B = away/right), date, time, venue, competition.
-- Roster: jersey number, player name and number of personal fouls (count the marks written in that player's foul boxes: P, T, U, D, P2, etc.). Players with no fouls get 0. "played" is true if the player-in / entered boxes are marked (X, tick or slash) or the player scored or fouled; false if those boxes are empty.
+Also read, for BOTH teams and with the same care for the away team as for the home team:
+- Team names (A = home/left, B = away/right), coaches, date, time, venue, competition.
+- Roster: jersey number, player name and number of personal fouls. Count one foul per occupied foul box (a "P2" written in one box is a single foul, not two). Players with no marks get 0. "played" is true if the player-in / entered boxes are marked (X, tick or slash) or the player scored or fouled; false if those boxes are empty.
+- Do not leave the away team's players, fouls or running score empty when they are written on the sheet.
 - quarterEndTotals: each team's cumulative score at the end of Q1, Q2, Q3 and Q4 (from the circled end-of-period scores). Add overtime ends if present.
 - quarterScores: points scored IN each period if the sheet has a summary box with them (e.g. "Scores Period 1 A 36 B 13"). Leave empty if not written.
 - finalScore of each team.

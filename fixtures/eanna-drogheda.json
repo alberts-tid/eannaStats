@@ -462,7 +462,21 @@
     {
       "side": "B",
       "name": "Drogheda Wolves",
-      "players": [],
+      "coach": "Danny Garaoua",
+      "players": [
+        { "number": "1", "name": "Cian Oronia", "fouls": 0, "played": true },
+        { "number": "3", "name": "Leo Duggan", "fouls": 3, "played": true },
+        { "number": "4", "name": "Jakub Grimm", "fouls": 1, "played": true },
+        { "number": "5", "name": "Taylor Deane", "fouls": 2, "played": true },
+        { "number": "7", "name": "Ben Kelly", "fouls": 0, "played": true },
+        { "number": "8", "name": "Conor McDonald", "fouls": 0, "played": true },
+        { "number": "9", "name": "Cormac Coyle", "fouls": 0, "played": true },
+        { "number": "10", "name": "Euan Garty", "fouls": 2, "played": true },
+        { "number": "11", "name": "Ignas Sneidris", "fouls": 2, "played": true },
+        { "number": "12", "name": "Nathan Osawaru", "fouls": 1, "played": true },
+        { "number": "14", "name": "Denmark Borowiec", "fouls": 3, "played": true },
+        { "number": "15", "name": "Aren Mench", "fouls": 2, "played": true }
+      ],
       "scoring": [
         { "total": 2, "jersey": "4", "threePointer": false, "freeThrow": false },
         { "total": 5, "jersey": "3", "threePointer": true, "freeThrow": false },
@@ -504,6 +518,6 @@
     }
   ],
   "notes": [
-    "Demo: lectura revisada a mano del acta Éanna BC vs Drogheda Wolves, running score de los dos equipos."
+    "Demo: lectura revisada a mano del acta Éanna BC vs Drogheda Wolves, running score, nombres y faltas de los dos equipos."
   ]
 }

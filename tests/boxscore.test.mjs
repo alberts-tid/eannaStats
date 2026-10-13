@@ -50,11 +50,16 @@ test('reproduce el box score Éanna BC 114-38', () => {
   assert.equal(wolves.totals.fg2, 11);
   assert.equal(wolves.totals.fg3, 2);
   assert.equal(wolves.totals.ftm, 10);
-  assert.deepEqual(line(wolves, '4'), [2, 1, 0, 0, null, 2, 0, 0, 0]);
-  assert.deepEqual(line(wolves, '3'), [6, 0, 2, 0, null, 6, 0, 0, 0]);
-  assert.deepEqual(line(wolves, '15'), [9, 4, 0, 1, null, 2, 0, 7, 0]);
-  assert.deepEqual(line(wolves, '12'), [8, 3, 0, 2, null, 0, 4, 2, 2]);
-  assert.deepEqual(line(wolves, '1'), [4, 2, 0, 0, null, 0, 0, 0, 4]);
+  assert.equal(wolves.totals.fouls, 16);
+  assert.equal(wolves.warnings.filter((w) => w.includes('no figura')).length, 0);
+  assert.equal(wolves.rows.find((r) => r.number === '4').name, 'Jakub Grimm');
+  assert.equal(wolves.rows.find((r) => r.number === '4').onRoster, true);
+  assert.deepEqual(line(wolves, '4'), [2, 1, 0, 0, 1, 2, 0, 0, 0]);
+  assert.deepEqual(line(wolves, '3'), [6, 0, 2, 0, 3, 6, 0, 0, 0]);
+  assert.deepEqual(line(wolves, '15'), [9, 4, 0, 1, 2, 2, 0, 7, 0]);
+  assert.deepEqual(line(wolves, '12'), [8, 3, 0, 2, 1, 0, 4, 2, 2]);
+  assert.deepEqual(line(wolves, '1'), [4, 2, 0, 0, 0, 0, 0, 0, 4]);
+  assert.deepEqual(line(wolves, '5'), [0, 0, 0, 0, 2, 0, 0, 0, 0]);
 });
 
 test('avisa de saltos imposibles y de cuartos que no cuadran', () => {
