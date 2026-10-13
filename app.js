@@ -17,6 +17,7 @@ import { renderBoxScoreCanvas, playerLabel, defaultNotes } from './render.js';
 import { firebaseConfig, appCheckSiteKey } from './firebase-config.js';
 
 const DEFAULT_MODEL = 'gemini-3.7-flash';
+const OR_MODEL = 'google/gemma-4-31b-it:free';
 const MAX_SIDE = 3072;
 
 const params = new URLSearchParams(location.search);
@@ -96,11 +97,29 @@ $('login-form').addEventListener('submit', async (ev) => {
 $('btn-logout').addEventListener('click', () => signOut(auth));
 
 // ---------- Image ----------
+function usesOpenRouter() {
+  return $('provider').value === 'openrouter';
+}
+
 function updateAnalyzeButton() {
-  $('btn-analyze').disabled = !(state.user && state.image);
-  $('analyze-hint').textContent = !state.user
-    ? 'Inicia sesión para analizar con IA.'
-    : (!state.image ? 'Sube primero una foto del acta.' : '');
+  const openrouter = usesOpenRouter();
+  const hasKey = Boolean($('or-key').value.trim());
+  $('btn-analyze').disabled = !(state.image && (openrouter ? hasKey : state.user));
+  $('analyze-hint').textContent = !state.image
+    ? 'Sube primero una foto del acta.'
+    : openrouter && !hasKey
+      ? 'Pega tu clave de OpenRouter.'
+      : !openrouter && !state.user
+        ? 'Gemini usa Firebase: inicia sesión.'
+        : '';
+}
+
+function applyProvider() {
+  const openrouter = usesOpenRouter();
+  $('or-key-label').hidden = !openrouter;
+  const stored = localStorage.getItem(openrouter ? 'acta.model.openrouter' : 'acta.model.gemini');
+  $('model').value = stored || (openrouter ? OR_MODEL : DEFAULT_MODEL);
+  updateAnalyzeButton();
 }
 
 async function loadImage(file) {
@@ -134,10 +153,26 @@ const drop = $('drop');
 drop.addEventListener('drop', (ev) => loadImage(ev.dataTransfer.files[0]));
 
 // ---------- AI ----------
-$('model').value = localStorage.getItem('acta.model') || DEFAULT_MODEL;
-$('model').addEventListener('change', () => localStorage.setItem('acta.model', $('model').value.trim()));
+$('provider').value = localStorage.getItem('acta.provider') || 'gemini';
+$('or-key').value = localStorage.getItem('acta.openrouterKey') || '';
+$('provider').addEventListener('change', () => {
+  localStorage.setItem('acta.provider', $('provider').value);
+  applyProvider();
+});
+$('or-key').addEventListener('input', () => {
+  localStorage.setItem('acta.openrouterKey', $('or-key').value.trim());
+  updateAnalyzeButton();
+});
+$('model').addEventListener('change', () => {
+  localStorage.setItem(usesOpenRouter() ? 'acta.model.openrouter' : 'acta.model.gemini', $('model').value.trim());
+});
+applyProvider();
 
 async function analyze() {
+  return usesOpenRouter() ? analyzeOpenRouter() : analyzeGemini();
+}
+
+async function analyzeGemini() {
   const modelName = $('model').value.trim() || DEFAULT_MODEL;
   const model = getGenerativeModel(ai, {
     model: modelName,
@@ -158,9 +193,68 @@ async function analyze() {
       return JSON.parse(result.response.text());
     } catch (err) {
       if (attempt >= delays.length || !isTransient(err)) throw err;
-      setStatus(`Gemini está saturado; reintentando (${attempt + 1}/${delays.length})…`, 'info');
+      setStatus(`El modelo está saturado; reintentando (${attempt + 1}/${delays.length})…`, 'info');
       await new Promise((r) => setTimeout(r, delays[attempt]));
     }
+  }
+}
+
+function parseExtraction(text) {
+  let raw = String(text || '').trim();
+  const fence = raw.match(/```(?:json)?\s*([\s\S]*?)```/);
+  if (fence) raw = fence[1];
+  const start = raw.indexOf('{');
+  const end = raw.lastIndexOf('}');
+  if (start < 0 || end <= start) throw new Error('La IA no ha devuelto JSON.');
+  const obj = JSON.parse(raw.slice(start, end + 1));
+  const event = (e) => ({
+    total: e.total,
+    jersey: e.jersey ?? e.number ?? '?',
+    threePointer: Boolean(e.threePointer ?? e.three),
+    freeThrow: Boolean(e.freeThrow ?? e.ft),
+  });
+  if (!Array.isArray(obj.teams) && Array.isArray(obj.scoring)) {
+    return { game: obj.game || {}, teams: [{ side: 'A', name: obj.name || '', scoring: obj.scoring.map(event) }], notes: obj.notes || [] };
+  }
+  for (const team of obj.teams || []) team.scoring = (team.scoring || []).map(event);
+  return obj;
+}
+
+async function analyzeOpenRouter() {
+  const key = $('or-key').value.trim();
+  const modelName = $('model').value.trim() || OR_MODEL;
+  const extra = $('hint').value.trim();
+  const shape = '{"game":{"competition":"","date":"","time":"","venue":""},"teams":[{"side":"A","name":"","players":[{"number":"","name":"","fouls":0,"played":true}],"scoring":[{"total":2,"jersey":"6","threePointer":false,"freeThrow":false}],"quarterEndTotals":[],"quarterScores":[],"finalScore":0}],"notes":[]}';
+  const prompt = `${EXTRACTION_PROMPT}\n\nReturn one JSON object with this shape: ${shape}${extra ? `\n\nExtra context from the user: ${extra}` : ''}`;
+  const body = {
+    model: modelName,
+    temperature: 0,
+    max_tokens: 8000,
+    messages: [{
+      role: 'user',
+      content: [
+        { type: 'text', text: prompt },
+        { type: 'image_url', image_url: { url: `data:${state.image.mimeType};base64,${state.image.base64}` } },
+      ],
+    }],
+  };
+  const delays = [4000, 12000, 25000];
+  for (let attempt = 0; ; attempt++) {
+    const res = await fetch('https://openrouter.ai/api/v1/chat/completions', {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${key}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    const data = await res.json().catch(() => ({}));
+    if (!res.ok) {
+      const err = new Error(data?.error?.message || `OpenRouter ha respondido ${res.status}`);
+      err.status = res.status;
+      if (attempt >= delays.length || ![429, 500, 502, 503].includes(res.status)) throw err;
+      setStatus(`OpenRouter está saturado; reintentando (${attempt + 1}/${delays.length})…`, 'info');
+      await new Promise((r) => setTimeout(r, delays[attempt]));
+      continue;
+    }
+    return parseExtraction(data.choices?.[0]?.message?.content || '');
   }
 }
 
@@ -197,8 +291,9 @@ function describeError(err) {
       : `AI Logic exige App Check y esta web no lo tiene configurado.${detail}`;
   }
   if (/not found|404/i.test(msg)) return `El modelo «${$('model').value.trim() || DEFAULT_MODEL}» no está disponible. Prueba otro en «Opciones».${detail}`;
-  if (/high demand|overloaded|UNAVAILABLE|\[50[03]/i.test(msg)) return `Gemini está saturado ahora mismo. Espera un minuto y vuelve a intentarlo, o prueba otro modelo en «Opciones».${detail}`;
-  if (/quota|429|RESOURCE_EXHAUSTED/i.test(msg)) return `Se ha superado la cuota de Gemini; espera un poco y vuelve a intentarlo.${detail}`;
+  if (/401|invalid.*key|Unauthorized/i.test(msg)) return `La clave de OpenRouter no es válida.${detail}`;
+  if (/high demand|overloaded|UNAVAILABLE|\[50[03]/i.test(msg)) return `El modelo está saturado ahora mismo. Espera un minuto y vuelve a intentarlo.${detail}`;
+  if (/rate-limited|quota|429|RESOURCE_EXHAUSTED/i.test(msg)) return `Se ha superado el cupo gratuito del modelo. Espera un poco y vuelve a intentarlo.${detail}`;
   if (/JSON/i.test(msg)) return `La IA ha devuelto una respuesta que no es JSON válido. Vuelve a intentarlo.${detail}`;
   return `Error al analizar: ${msg}`;
 }

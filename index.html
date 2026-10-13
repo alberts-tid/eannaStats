@@ -52,12 +52,23 @@
       </label>
       <div id="preview-wrap" class="preview" hidden><img id="preview" alt="Acta subida"></div>
 
+      <label>Proveedor
+        <select id="provider">
+          <option value="gemini">Gemini (Firebase)</option>
+          <option value="openrouter">Gemma (OpenRouter, gratis)</option>
+        </select>
+      </label>
+      <label id="or-key-label" hidden>Clave de OpenRouter
+        <input id="or-key" type="password" autocomplete="off" spellcheck="false" placeholder="sk-or-v1-…">
+        <span class="muted small">Se guarda solo en este navegador. Créala en openrouter.ai/keys. El cupo gratis a veces responde 429.</span>
+      </label>
+
       <details class="advanced">
         <summary>Opciones</summary>
         <label>Contexto para la IA (opcional)
           <textarea id="hint" rows="2" placeholder="Ej.: nuestro equipo es el A (Éanna BC). El jugador 1 se llama Mark."></textarea>
         </label>
-        <label>Modelo Gemini
+        <label>Modelo
           <input id="model" type="text" spellcheck="false">
         </label>
       </details>
