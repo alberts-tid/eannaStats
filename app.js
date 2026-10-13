@@ -15,7 +15,7 @@ import { initStore, listGames, saveGame, deleteGame } from './store.js';
 import { EXTRACTION_PROMPT, buildResponseSchema } from './prompt.js';
 import { renderBoxScoreCanvas, playerLabel, defaultNotes } from './render.js';
 import { firebaseConfig, appCheckSiteKey } from './firebase-config.js';
-import { locateRunningScore, missingInkedTotals } from './sheetlines.js';
+import { lineBox, locateRunningScore, missingInkedTotals } from './sheetlines.js';
 import { busyNote, describeAiError, isTransient, retryMessage } from './ai-errors.js';
 
 const DEFAULT_MODEL = 'gemini-3.7-flash';
@@ -462,7 +462,7 @@ function renderEditor() {
   };
   const richer = [...teams].sort((a, b) => (b.scoring?.length || 0) - (a.scoring?.length || 0))[0];
   const photo = runningPhoto(richer);
-  // El impreso trae A y B tres veces: filas 1–40, 41–80 y 81–120. No se salta ninguna.
+  // Una sola tira: 1, 2, 3… sin saltarse filas y sin repetir A/B en horizontal.
   const placed = teams.map((team, i) => ({ team, i, box: boxes[i], plays: playByTotal[i] }));
   placed.sort((a, b) => (a.team.side === 'B') - (b.team.side === 'B'));
   const teamA = placed[0] || null;
@@ -472,12 +472,11 @@ function renderEditor() {
     ...(team.scoring || []).map((e) => parseInt(e.total, 10) || 0),
     parseInt(team.finalScore, 10) || 0,
   ), 0);
-  const blocks = Math.min(4, Math.max(3, Math.ceil(maxTotal / 40) || 3));
-  const sheetRows = 40;
+  const lastTotal = Math.min(160, Math.max(120, Math.ceil(maxTotal / 40) * 40));
   const editor = $('editor');
   editor.classList.toggle('has-photo', !!photo);
-  const jerseyCell = (slot, total, split) => {
-    if (!slot) return `<td class="rs-jersey${split ? ' split' : ''}"></td>`;
+  const jerseyCell = (slot, total) => {
+    if (!slot) return '<td class="rs-jersey"></td>';
     const { team, i, plays, box } = slot;
     const entry = findScoring(team, total)?.entry;
     const play = plays?.get(total);
@@ -485,39 +484,33 @@ function renderEditor() {
     const bad = play && (play.doubts.length || play.kind === 'OTHER' || play.kind === 'SKIP');
     const side = team.side === 'B' ? 'B' : 'A';
     const name = team.name || `Equipo ${i + 1}`;
-    return `<td class="rs-jersey${split ? ' split' : ''}${bad ? ' bad' : ''}${end ? ' end' : ''}">
+    return `<td class="rs-jersey${bad ? ' bad' : ''}${end ? ' end' : ''}">
       <div class="run-player${entry?.threePointer ? ' circled' : ''}">
         <input type="text" class="run-jersey" data-team="${i}" data-total="${total}" value="${esc(entry?.jersey || '')}" aria-label="Dorsal ${side} ${total} de ${esc(name)}" inputmode="numeric">
         <button type="button" class="run-three" data-team="${i}" data-total="${total}" aria-pressed="${entry?.threePointer ? 'true' : 'false'}" aria-label="Dorsal rodeado: triple" title="Dorsal rodeado: triple"></button>
       </div>
     </td>`;
   };
-  const numCell = (slot, total) => {
+  const numCell = (slot, total, split) => {
     const play = slot?.plays?.get(total);
     const end = quarterMark(play, slot?.box);
     const slash = play && (play.kind === '2PT' || play.kind === '3PT');
-    return `<td class="rs-num${slash ? ' slash' : ''}${end ? ' end' : ''}"${end ? ` title="Fin de ${end}"` : ''}>${total}</td>`;
+    return `<td class="rs-num${split ? ' split' : ''}${slash ? ' slash' : ''}${end ? ' end' : ''}"${end ? ` title="Fin de ${end}"` : ''}>${total}</td>`;
   };
-  const head = Array.from({ length: blocks }, (_, b) => {
-    const split = b > 0 ? ' split' : '';
-    const aName = teamA?.team.name || 'Equipo A';
-    const bName = teamB?.team.name || 'Equipo B';
-    return `<th class="rs-side${split}" colspan="2" title="${esc(aName)}">A</th><th class="rs-side" colspan="2" title="${esc(bName)}">B</th>`;
-  }).join('');
-  const body = Array.from({ length: sheetRows }, (_, row) => {
-    const totals = Array.from({ length: blocks }, (__, b) => row + 1 + b * 40);
-    const doubts = totals.flatMap((total) => placed.flatMap(({ team, plays }) => {
+  const aName = teamA?.team.name || 'Equipo A';
+  const bName = teamB?.team.name || 'Equipo B';
+  const body = Array.from({ length: lastTotal }, (_, i) => {
+    const total = i + 1;
+    const doubts = placed.flatMap(({ team, plays }) => {
       const play = plays?.get(total);
       if (!play?.doubts?.length) return [];
       const side = team.side === 'B' ? 'B' : 'A';
       return play.doubts.map((d) => `${side} ${total}: ${d}`);
-    }));
-    const cells = totals.map((total, b) => (
-      jerseyCell(teamA, total, b > 0) + numCell(teamA, total) + numCell(teamB, total) + jerseyCell(teamB, total, false)
-    )).join('');
-    return `<tr data-row="${row}">
-      ${photo ? `<td class="rs-photo"><canvas class="run-photo" aria-label="Fila ${row + 1} del acta"></canvas></td>` : ''}
-      ${cells}
+    });
+    const block = total > 1 && (total - 1) % 40 === 0 ? ' class="block"' : '';
+    return `<tr data-total="${total}"${block}>
+      ${photo ? `<td class="rs-photo"><canvas class="run-photo" aria-label="Línea del acta del marcador ${total}"></canvas></td>` : ''}
+      ${jerseyCell(teamA, total)}${numCell(teamA, total, false)}${numCell(teamB, total, true)}${jerseyCell(teamB, total)}
       <td class="rs-doubt">${doubts.map((d) => esc(d)).join('<br>')}</td>
     </tr>`;
   }).join('');
@@ -530,16 +523,17 @@ function renderEditor() {
       <caption>Running score${title ? ` · ${esc(title)}` : ''}</caption>
       <thead><tr>
         ${photo ? '<th class="rs-photo-h"></th>' : ''}
-        ${head}
+        <th class="rs-side" colspan="2" title="${esc(aName)}">A</th>
+        <th class="rs-side split" colspan="2" title="${esc(bName)}">B</th>
         <th class="rs-doubt-h">Duda</th>
       </tr></thead>
       <tbody>${body}</tbody>
     </table>
     ${extra}`;
 
-  editor.querySelectorAll('tr[data-row]').forEach((row) => {
+  editor.querySelectorAll('tr[data-total]').forEach((row) => {
     if (!photo) return;
-    const box = sheetRowBox(photo.grid, parseInt(row.dataset.row, 10), blocks);
+    const box = lineBox(photo.grid, parseInt(row.dataset.total, 10));
     const canvas = row.querySelector('.run-photo');
     if (canvas && box) paintSheetLine(canvas, photo.canvas, box);
   });
@@ -569,19 +563,6 @@ function renderEditor() {
       syncJson();
     });
   });
-}
-
-function sheetRowBox(grid, row, blocks) {
-  if (!grid || row < 0 || row >= grid.rows) return null;
-  const padY = grid.pitch * 0.14;
-  const padX = Math.max(1, grid.blockWidth * 0.03);
-  return {
-    x: grid.x - padX,
-    y: grid.top + row * grid.pitch - padY,
-    w: blocks * grid.blockWidth + padX * 2,
-    h: grid.pitch + padY * 2,
-    row,
-  };
 }
 
 function syncJson() {
