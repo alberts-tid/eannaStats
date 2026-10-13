@@ -93,6 +93,8 @@ body.busy-open { overflow: hidden; }
 table.box { width: 100%; border-collapse: collapse; margin-top: 10px; font-variant-numeric: tabular-nums; }
 table.box th { font-size: 12px; color: var(--muted); text-transform: uppercase; padding: 10px 6px; text-align: center; }
 table.box th.left { text-align: left; }
+table.box thead th.opp, table.box tbody td.opp { background: #F3F5FA; }
+table.box thead th[rowspan] { vertical-align: bottom; }
 table.box td { padding: 9px 6px; text-align: center; border-bottom: 1px solid var(--line); font-weight: 600; }
 table.box td.name { text-align: left; white-space: nowrap; }
 table.box td.pts { font-weight: 700; }

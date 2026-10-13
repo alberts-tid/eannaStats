@@ -307,6 +307,8 @@ export function aggregateTeam(games, key) {
       team,
       pointsFor: team.finalScore,
       pointsAgainst: against ? against.points : null,
+      foulsFor: team.rows.some((r) => r.onRoster) ? team.totals.fouls : null,
+      quartersFor: team.hasScoring ? [...team.totals.quarters] : null,
       against,
     });
   }
@@ -319,7 +321,9 @@ export function aggregateTeam(games, key) {
       const k = r.onRoster ? playerKey(r) : `x:${r.number}`;
       const p = players.get(k) || {
         key: k, name: r.name, number: r.number, onRoster: r.onRoster,
-        gp: 0, pts: 0, fg2: 0, fg3: 0, ftm: 0, fouls: 0, perGame: Array(matches.length).fill(null),
+        gp: 0, pts: 0, fg2: 0, fg3: 0, ftm: 0, fouls: 0,
+        quarters: [0, 0, 0, 0],
+        perGame: Array(matches.length).fill(null),
       };
       p.number = r.number;
       if (r.name) p.name = r.name;
@@ -329,6 +333,7 @@ export function aggregateTeam(games, key) {
       p.fg3 += r.fg3;
       p.ftm += r.ftm;
       p.fouls += r.fouls || 0;
+      for (let q = 0; q < 4; q++) p.quarters[q] += r.quarters?.[q] || 0;
       p.perGame[gi] = r.played ? r.pts : null;
       players.set(k, p);
     }

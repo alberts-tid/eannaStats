@@ -162,6 +162,8 @@ test('acumula estadísticas por jugador entre partidos', () => {
   assert.equal(agg.matches[0].against.ftm, 10);
   assert.equal(agg.matches[0].against.fouls, 16);
   assert.deepEqual(agg.matches[0].against.quarters, [13, 8, 11, 6]);
+  assert.deepEqual(agg.matches[0].quartersFor, [36, 28, 22, 28]);
+  assert.equal(agg.matches[0].foulsFor, 14);
   assert.equal(agg.matches[1].against.points, 50);
   assert.equal(agg.matches[1].against.fg2, null);
   assert.equal(agg.matches[1].against.fouls, null);
@@ -178,6 +180,7 @@ test('acumula estadísticas por jugador entre partidos', () => {
   const jamie = agg.rows.find((r) => r.name === 'Jamie Charles');
   assert.deepEqual([jamie.gp, jamie.pts, jamie.fg2, jamie.fg3, jamie.ftm, jamie.fouls], [2, 35, 6, 5, 8, 6]);
   assert.deepEqual(jamie.perGame, [31, 4, null]);
+  assert.deepEqual(jamie.quarters, [11, 11, 7, 6]);
   const liam = agg.rows.find((r) => r.name === 'Liam Walsh');
   assert.deepEqual([liam.gp, liam.pts, liam.fouls], [1, 2, 1]);
   assert.deepEqual(liam.perGame, [null, 2, null]);

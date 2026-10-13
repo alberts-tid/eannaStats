@@ -777,9 +777,8 @@ function renderSaved() {
       : '';
     $('games-list').innerHTML = msg;
     $('totals-summary').innerHTML = '';
-    $('totals-against').innerHTML = '';
-    $('totals-table').innerHTML = msg;
-    $('totals-matrix').innerHTML = '';
+    $('totals-games').innerHTML = '';
+    $('totals-players').innerHTML = msg;
     renderPublicDetail();
     return;
   }
@@ -837,27 +836,56 @@ function againstStat(label, stat, n) {
   return [`${label}${scope}`, stat.games ? String(stat.total) : '—'];
 }
 
-function renderAgainstTable(agg) {
-  const num = (v) => (v === null || v === undefined ? '—' : v);
+function cellNum(v) {
+  return v === null || v === undefined ? '—' : v;
+}
+
+function sumKnown(values) {
+  const known = values.filter((v) => Number.isFinite(v));
+  return known.length ? known.reduce((a, v) => a + v, 0) : null;
+}
+
+function pairCells(favor, against, cls = '') {
+  return `<td class="${cls}">${cellNum(favor)}</td><td class="opp ${cls}">${cellNum(against)}</td>`;
+}
+
+function renderGamesTable(agg) {
+  const q = (list, i) => (list ? list[i] : null);
   const rows = agg.matches.map((m) => `
     <tr>
       <td>${esc(m.dateLabel || '—')}</td>
       <td class="name">${esc(m.opponent || '—')}</td>
-      <td>${num(m.against?.points)}</td>
-      <td>${num(m.against?.fg2)}</td>
-      <td>${num(m.against?.fg3)}</td>
-      <td>${num(m.against?.ftm)}</td>
-      <td>${num(m.against?.fouls)}</td>
+      ${pairCells(m.pointsFor, m.pointsAgainst, 'pts')}
+      ${pairCells(m.foulsFor, m.against?.fouls)}
+      ${[0, 1, 2, 3].map((i) => pairCells(q(m.quartersFor, i), q(m.against?.quarters, i))).join('')}
     </tr>`).join('');
-  const a = agg.against;
-  const tot = (stat) => (stat.games ? stat.total : '—');
-  $('totals-against').innerHTML = `
-    <h3>En contra</h3>
-    <p class="muted small">Lo que hicieron los rivales. Cada acta nueva se suma: puntos, tiros de 2, tiros de 3 y faltas. Si un acta no trae el running score o la lista del rival, esa casilla queda en blanco y no entra en el total.</p>
+  const quartersFor = [0, 1, 2, 3].map((i) => sumKnown(agg.matches.map((m) => q(m.quartersFor, i))));
+  const quartersAgainst = [0, 1, 2, 3].map((i) => sumKnown(agg.matches.map((m) => q(m.against?.quarters, i))));
+  const sub = ['A favor', 'En contra', 'A favor', 'En contra', 'A favor', 'En contra', 'A favor', 'En contra', 'A favor', 'En contra', 'A favor', 'En contra']
+    .map((label, i) => `<th class="${i % 2 ? 'opp' : ''}">${label}</th>`).join('');
+  $('totals-games').innerHTML = `
+    <h3>Por partido</h3>
     <table class="box">
-      <thead><tr><th class="left">Fecha</th><th class="left">Rival</th><th>Puntos</th><th>Tiros de 2</th><th>Tiros de 3</th><th>Tiros libres</th><th>Faltas</th></tr></thead>
+      <thead>
+        <tr>
+          <th class="left" rowspan="2">Fecha</th>
+          <th class="left" rowspan="2">Rival</th>
+          <th colspan="2">Puntos</th>
+          <th colspan="2">Faltas</th>
+          <th colspan="2">Q1</th>
+          <th colspan="2">Q2</th>
+          <th colspan="2">Q3</th>
+          <th colspan="2">Q4</th>
+        </tr>
+        <tr>${sub}</tr>
+      </thead>
       <tbody>${rows}</tbody>
-      <tfoot><tr><td></td><td>TOTAL</td><td>${tot(a.points)}</td><td>${tot(a.fg2)}</td><td>${tot(a.fg3)}</td><td>${tot(a.ftm)}</td><td>${tot(a.fouls)}</td></tr></tfoot>
+      <tfoot><tr>
+        <td></td><td>TOTAL</td>
+        ${pairCells(sumKnown(agg.matches.map((m) => m.pointsFor)), sumKnown(agg.matches.map((m) => m.pointsAgainst)))}
+        ${pairCells(sumKnown(agg.matches.map((m) => m.foulsFor)), sumKnown(agg.matches.map((m) => m.against?.fouls)))}
+        ${[0, 1, 2, 3].map((i) => pairCells(quartersFor[i], quartersAgainst[i])).join('')}
+      </tr></tfoot>
     </table>`;
 }
 
@@ -884,11 +912,10 @@ function renderTotals(agg) {
     ['Con estadísticas', `${agg.gamesWithStats} de ${n}`],
   ];
   $('totals-summary').innerHTML = stats.map(([k, v]) => `<div class="stat"><b>${esc(v)}</b><span>${esc(k)}</span></div>`).join('');
-  renderAgainstTable(agg);
+  renderGamesTable(agg);
 
   if (!agg.rows.length) {
-    $('totals-table').innerHTML = '<p class="muted">Ningún partido de este equipo tiene marcador por jugador.</p>';
-    $('totals-matrix').innerHTML = '';
+    $('totals-players').innerHTML = '<p class="muted">Ningún partido tiene marcador por jugador.</p>';
     return;
   }
   const cls = (v) => (v === 0 ? 'zero' : '');
@@ -900,43 +927,37 @@ function renderTotals(agg) {
         <td><span class="chip">${esc(r.number)}</span></td>
         <td class="name">${esc(playerLabel(r))}</td>
         <td>${gp}</td>
-        <td class="pts ${cls(r.pts)}">${r.pts}</td>
-        <td class="avg">${per(r.pts)}</td>
-        <td class="${cls(r.fg2)}">${r.fg2}</td>
-        <td class="${cls(r.fg3)}">${r.fg3}</td>
-        <td class="${cls(r.ftm)}">${r.ftm}</td>
         <td class="${cls(r.fouls)}">${r.fouls}</td>
         <td class="avg">${per(r.fouls)}</td>
+        <td class="pts ${cls(r.pts)}">${r.pts}</td>
+        <td class="avg">${per(r.pts)}</td>
+        ${[0, 1, 2, 3].map((q) => `<td class="${cls(r.quarters[q])}">${r.quarters[q]}</td>`).join('')}
       </tr>`;
   }).join('');
-  const t = agg.rows.reduce((a, r) => ({
-    pts: a.pts + r.pts, fg2: a.fg2 + r.fg2, fg3: a.fg3 + r.fg3, ftm: a.ftm + r.ftm, fouls: a.fouls + r.fouls,
-  }), { pts: 0, fg2: 0, fg3: 0, ftm: 0, fouls: 0 });
+  const t = agg.rows.reduce((a, r) => {
+    a.pts += r.pts;
+    a.fouls += r.fouls;
+    for (let q = 0; q < 4; q++) a.quarters[q] += r.quarters[q] || 0;
+    return a;
+  }, { pts: 0, fouls: 0, quarters: [0, 0, 0, 0] });
   const g = agg.gamesWithStats;
-  $('totals-table').innerHTML = `
-    <h3>A favor · Éanna</h3>
+  $('totals-players').innerHTML = `
+    <h3>Por jugador</h3>
     <table class="box">
-      <thead><tr><th class="left">#</th><th class="left">Player</th><th>PJ</th><th>PTS</th><th class="avg">PTS/PJ</th><th>2PM</th><th>3PM</th><th>FTM</th><th>Fouls</th><th class="avg">F/PJ</th></tr></thead>
+      <thead><tr>
+        <th class="left">#</th><th class="left">Jugador</th><th>PJ</th>
+        <th>Faltas</th><th class="avg">F/PJ</th>
+        <th>PTS</th><th class="avg">PTS/PJ</th>
+        <th>Q1</th><th>Q2</th><th>Q3</th><th>Q4</th>
+      </tr></thead>
       <tbody>${body}</tbody>
-      <tfoot><tr><td></td><td>TOTAL (${g} ${g === 1 ? 'partido' : 'partidos'})</td><td>${g}</td><td>${t.pts}</td><td>${g ? fmt1(t.pts / g) : '—'}</td><td>${t.fg2}</td><td>${t.fg3}</td><td>${t.ftm}</td><td>${t.fouls}</td><td>${g ? fmt1(t.fouls / g) : '—'}</td></tr></tfoot>
+      <tfoot><tr>
+        <td></td><td>TOTAL (${g} ${g === 1 ? 'partido' : 'partidos'})</td><td>${g}</td>
+        <td>${t.fouls}</td><td>${g ? fmt1(t.fouls / g) : '—'}</td>
+        <td>${t.pts}</td><td>${g ? fmt1(t.pts / g) : '—'}</td>
+        ${t.quarters.map((q) => `<td>${q}</td>`).join('')}
+      </tr></tfoot>
     </table>`;
-
-  const cols = agg.matches.map((m, i) => ({ m, i })).filter(({ m }) => m.team.hasScoring);
-  const head = cols.map(({ m }) => `<th class="game">${esc(m.dateLabel || '—')}<br>${esc(m.opponent ? `vs ${m.opponent}` : '')}</th>`).join('');
-  const mrows = agg.rows.map((r) => `
-    <tr class="${r.onRoster ? '' : 'off'}">
-      <td class="name"><span class="chip">${esc(r.number)}</span> ${esc(playerLabel(r))}</td>
-      ${cols.map(({ i }) => {
-        const v = r.perGame[i];
-        return `<td class="${v === 0 ? 'zero' : ''}">${v === null ? '<span class="muted">·</span>' : v}</td>`;
-      }).join('')}
-    </tr>`).join('');
-  $('totals-matrix').innerHTML = `
-    <table class="box matrix">
-      <thead><tr><th class="left">Player</th>${head}</tr></thead>
-      <tbody>${mrows}</tbody>
-    </table>
-    <p class="muted small">«·» = no jugó ese partido.</p>`;
 }
 
 updateAnalyzeButton();
