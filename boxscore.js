@@ -61,11 +61,14 @@ export function computeTeamBoxScore(team) {
   const quarterEnds = deriveQuarterEnds(team, events, warnings);
   const quarterTotals = [0, 0, 0, 0];
   const plays = [];
+  const warn = (doubts, msg) => { warnings.push(msg); doubts.push(msg); };
   let prev = 0;
   for (const e of events) {
     const diff = e.total - prev;
+    const doubts = [];
     if (diff <= 0) {
-      warnings.push(`El marcador ${e.total} está repetido o fuera de orden; se ignora.`);
+      warn(doubts, `El marcador ${e.total} está repetido o fuera de orden; se ignora.`);
+      plays.push({ idx: e.idx, total: e.total, jersey: e.jersey || '?', points: diff, kind: 'SKIP', quarter: null, doubts });
       continue;
     }
     prev = e.total;
@@ -77,21 +80,21 @@ export function computeTeamBoxScore(team) {
     else kind = 'OTHER';
 
     if (kind === 'OTHER') {
-      warnings.push(`Salto de +${diff} hasta ${e.total} (dorsal ${e.jersey || '?'}): falta alguna anotación o hay un número mal leído.`);
+      warn(doubts, `Salto de +${diff} hasta ${e.total} (dorsal ${e.jersey || '?'}): falta alguna anotación o hay un número mal leído.`);
     }
     if (kind === '3PT' && e.threePointer === false) {
-      warnings.push(`El marcador ${e.total} sube +3 pero el dorsal no aparece rodeado como triple.`);
+      warn(doubts, `El marcador ${e.total} sube +3 pero el dorsal no aparece rodeado como triple.`);
     }
     if (kind !== '3PT' && e.threePointer === true) {
-      warnings.push(`El marcador ${e.total} tiene el dorsal rodeado (triple) pero sube +${diff}.`);
+      warn(doubts, `El marcador ${e.total} tiene el dorsal rodeado (triple) pero sube +${diff}.`);
     }
     if (kind === 'FT' && e.freeThrow === false) {
-      warnings.push(`El marcador ${e.total} sube +1 pero no está marcado como tiro libre.`);
+      warn(doubts, `El marcador ${e.total} sube +1 pero no está marcado como tiro libre.`);
     }
 
     let jersey = e.jersey;
     if (!jersey) {
-      warnings.push(`El marcador ${e.total} no tiene dorsal legible.`);
+      warn(doubts, `El marcador ${e.total} no tiene dorsal legible.`);
       jersey = '?';
     }
     if (!lines.has(jersey)) {
@@ -105,24 +108,32 @@ export function computeTeamBoxScore(team) {
     else if (kind === '3PT') line.fg3 += 1;
     else line.other += diff;
     quarterTotals[q] += diff;
-    plays.push({ idx: e.idx, total: e.total, jersey, points: diff, kind, quarter: q });
+    plays.push({ idx: e.idx, total: e.total, jersey, points: diff, kind, quarter: q, doubts });
   }
 
+  const counted = plays.some((p) => p.kind !== 'SKIP');
   for (const line of lines.values()) {
     if (!line.onRoster && line.pts > 0) {
-      warnings.push(`El dorsal ${line.number} anota ${line.pts} puntos pero no figura en la lista de jugadores.`);
+      const msg = `El dorsal ${line.number} anota ${line.pts} puntos pero no figura en la lista de jugadores.`;
+      warnings.push(msg);
+      const play = plays.find((p) => p.kind !== 'SKIP' && p.jersey === line.number);
+      if (play) play.doubts.push(msg);
     }
   }
 
   const finalScore = Number.isFinite(+team.finalScore) && +team.finalScore > 0 ? +team.finalScore : null;
   const computedTotal = prev;
-  if (plays.length && finalScore !== null && finalScore !== computedTotal) {
+  if (counted && finalScore !== null && finalScore !== computedTotal) {
     warnings.push(`La suma del marcador corrido da ${computedTotal}, pero el resultado final leído es ${finalScore}.`);
   }
   const reportedQ = Array.isArray(team.quarterScores) ? team.quarterScores.map((v) => parseInt(v, 10)) : [];
   reportedQ.slice(0, 4).forEach((v, i) => {
-    if (plays.length && Number.isFinite(v) && v !== quarterTotals[i]) {
-      warnings.push(`${QUARTER_LABELS[i]}: el acta indica ${v} puntos y los marcados suman ${quarterTotals[i]}.`);
+    if (counted && Number.isFinite(v) && v !== quarterTotals[i]) {
+      const msg = `${QUARTER_LABELS[i]}: el acta indica ${v} puntos y los marcados suman ${quarterTotals[i]}.`;
+      warnings.push(msg);
+      const end = quarterEnds[i];
+      const play = plays.find((p) => p.kind !== 'SKIP' && p.quarter === i && p.total === end);
+      if (play) play.doubts.push(msg);
     }
   });
 
@@ -157,7 +168,7 @@ export function computeTeamBoxScore(team) {
     plays,
     quarterEnds,
     finalScore: finalScore ?? computedTotal,
-    hasScoring: plays.length > 0,
+    hasScoring: plays.some((p) => p.kind !== 'SKIP'),
     warnings,
   };
 }

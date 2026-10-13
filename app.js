@@ -99,9 +99,11 @@ $('btn-logout').addEventListener('click', () => signOut(auth));
 // ---------- Image ----------
 function updateAnalyzeButton() {
   $('btn-analyze').disabled = !(state.user && state.image);
-  $('analyze-hint').textContent = !state.user
-    ? 'Inicia sesión para analizar con IA.'
+  const hint = !state.user
+    ? 'Inicia sesión para analizar el acta.'
     : (!state.image ? 'Sube primero una foto del acta.' : '');
+  $('analyze-hint').textContent = hint;
+  $('analyze-hint').hidden = !hint;
 }
 
 async function loadImage(file) {
@@ -122,8 +124,10 @@ async function loadImage(file) {
   URL.revokeObjectURL(url);
   state.image = { base64: dataUrl.split(',')[1], mimeType: 'image/jpeg', name: file.name };
   $('preview').src = dataUrl;
-  $('preview-wrap').hidden = false;
-  $('drop-label').textContent = file.name;
+  $('preview').hidden = false;
+  $('drop-empty').hidden = true;
+  $('drop').classList.add('has-file');
+  $('drop').title = 'Cambiar foto';
   setStatus('');
   updateAnalyzeButton();
 }
@@ -218,11 +222,11 @@ $('btn-analyze').addEventListener('click', async () => {
   }
 });
 
-$('btn-demo').addEventListener('click', async () => {
+async function loadDemo() {
   const res = await fetch('fixtures/eanna-drogheda.json');
   setExtraction(await res.json());
   setStatus('Ejemplo cargado (Éanna BC vs Drogheda Wolves), sin llamar a la IA.', 'ok');
-});
+}
 
 // ---------- Results ----------
 function setExtraction(extraction, { savedId = null } = {}) {
@@ -300,33 +304,75 @@ function renderResults() {
       <ul class="notes">${defaultNotes(team).map((n) => `<li>${esc(n)}</li>`).join('')}</ul>`;
   }
 
-  const warnings = [...team.warnings, ...(state.extraction.notes || []).map((n) => `IA: ${n}`)];
-  $('warnings').hidden = !warnings.length;
-  $('warnings-list').innerHTML = warnings.map((w) => `<li>${esc(w)}</li>`).join('');
-
   renderEditor();
+}
+
+function mentionsToken(text, token) {
+  const safe = String(token).replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+  return new RegExp(`(?<!\\d)${safe}(?!\\d)`).test(String(text));
 }
 
 function renderEditor() {
   const team = state.extraction.teams?.[state.teamIndex];
-  const plays = new Map(state.box.teams[state.teamIndex].plays.map((p) => [p.idx, p]));
-  const rows = (team?.scoring || []).map((e, idx) => ({ e, idx, play: plays.get(idx) }))
-    .sort((a, b) => (+a.e.total || 0) - (+b.e.total || 0));
-  $('editor').innerHTML = rows.map(({ e, idx, play }) => `
-    <div class="ev ${play && play.kind === 'OTHER' ? 'bad' : ''}" data-idx="${idx}">
-      <input type="number" class="ev-total" value="${esc(e.total)}" min="1" title="Marcador">
-      <input type="text" class="ev-jersey" value="${esc(e.jersey)}" title="Dorsal">
-      <label title="Dorsal rodeado (triple)"><input type="checkbox" class="ev-three" ${e.threePointer ? 'checked' : ''}>T3</label>
-      <span class="ev-kind">${play ? `${play.kind === 'OTHER' ? `+${play.points}?` : play.kind} ${QUARTER_LABELS[play.quarter] || ''}` : '—'}</span>
-      <button type="button" class="ev-del" title="Eliminar">×</button>
-    </div>`).join('') || '<p class="muted">Sin anotaciones.</p>';
+  const boxTeam = state.box.teams[state.teamIndex];
+  const plays = boxTeam.plays.map((p) => ({ ...p, doubts: [...(p.doubts || [])] }));
+  const byIdx = new Map(plays.map((p) => [p.idx, p]));
+  const notes = state.extraction.notes || [];
+  const leftoverNotes = [];
+  for (const note of notes) {
+    const hit = plays.find((p) => mentionsToken(note, p.total) || (p.jersey && p.jersey !== '?' && mentionsToken(note, p.jersey)));
+    if (hit) hit.doubts.push(`IA: ${note}`);
+    else leftoverNotes.push(`IA: ${note}`);
+  }
+  const used = new Set(plays.flatMap((p) => p.doubts));
+  const general = [...boxTeam.warnings.filter((w) => !used.has(w)), ...leftoverNotes];
+  const rows = (team?.scoring || []).map((e, idx) => ({ e, idx, play: byIdx.get(idx) }))
+    .sort((a, b) => (+a.e.total || 0) - (+b.e.total || 0) || a.idx - b.idx);
+  const kindLabel = (play) => {
+    if (!play) return '';
+    if (play.kind === 'SKIP') return '—';
+    if (play.kind === 'OTHER') return `+${play.points}?`;
+    if (play.kind === 'FT') return '+1';
+    if (play.kind === '2PT') return '+2';
+    return '+3';
+  };
+  const quarterMark = (play) => {
+    if (!play || play.kind === 'SKIP' || play.quarter == null) return '';
+    const end = boxTeam.quarterEnds?.[play.quarter];
+    return end === play.total && Number.isFinite(end) ? QUARTER_LABELS[play.quarter] : '';
+  };
+  const body = rows.map(({ e, idx, play }) => {
+    const doubts = play?.doubts || [];
+    const end = quarterMark(play);
+    return `
+    <div class="run ${doubts.length || play?.kind === 'OTHER' || play?.kind === 'SKIP' ? 'bad' : ''} ${end ? 'end' : ''}" data-idx="${idx}">
+      <input type="number" class="run-total" value="${esc(e.total)}" min="1" aria-label="Marcador acumulado">
+      <div class="run-player ${e.threePointer ? 'circled' : ''}">
+        <input type="text" class="run-jersey" value="${esc(e.jersey)}" aria-label="Dorsal" inputmode="numeric">
+        <button type="button" class="run-three" aria-pressed="${e.threePointer ? 'true' : 'false'}" aria-label="Dorsal rodeado: triple" title="Dorsal rodeado: triple"></button>
+      </div>
+      <span class="run-kind">${esc(kindLabel(play))}${end ? ` · ${end}` : ''}</span>
+      <p class="run-doubt">${doubts.map((d) => esc(d)).join(' ')}</p>
+      <button type="button" class="run-del" title="Eliminar anotación">×</button>
+    </div>`;
+  }).join('');
+  const extra = general.length
+    ? `<ul class="running-extra">${general.map((w) => `<li>${esc(w)}</li>`).join('')}</ul>`
+    : '';
+  $('editor').innerHTML = `
+    <div class="running-title">Running score · ${esc(team?.name || 'Equipo')}</div>
+    <div class="run run-head"><span>Total</span><span>Nº</span><span></span><span>Duda</span><span></span></div>
+    ${body || '<p class="muted" style="padding:12px">Sin anotaciones.</p>'}
+    ${extra}`;
 
-  $('editor').querySelectorAll('.ev').forEach((row) => {
+  $('editor').querySelectorAll('.run[data-idx]').forEach((row) => {
     const entry = team.scoring[+row.dataset.idx];
-    row.querySelector('.ev-total').addEventListener('change', (ev) => { entry.total = parseInt(ev.target.value, 10); syncJson(); });
-    row.querySelector('.ev-jersey').addEventListener('change', (ev) => { entry.jersey = ev.target.value.trim(); syncJson(); });
-    row.querySelector('.ev-three').addEventListener('change', (ev) => { entry.threePointer = ev.target.checked; syncJson(); });
-    row.querySelector('.ev-del').addEventListener('click', () => { team.scoring.splice(+row.dataset.idx, 1); syncJson(); });
+    row.querySelector('.run-total').addEventListener('change', (ev) => { entry.total = parseInt(ev.target.value, 10); syncJson(); });
+    const jersey = row.querySelector('.run-jersey');
+    jersey.addEventListener('click', (ev) => ev.stopPropagation());
+    jersey.addEventListener('change', (ev) => { entry.jersey = ev.target.value.trim(); syncJson(); });
+    row.querySelector('.run-three').addEventListener('click', () => { entry.threePointer = !entry.threePointer; syncJson(); });
+    row.querySelector('.run-del').addEventListener('click', () => { team.scoring.splice(+row.dataset.idx, 1); syncJson(); });
   });
 }
 
@@ -637,7 +683,7 @@ function renderTotals(agg) {
     <p class="muted small">«·» = no jugó ese partido.</p>`;
 }
 
-if (params.has('demo')) $('btn-demo').click();
+if (params.has('demo')) loadDemo();
 updateAnalyzeButton();
 updateSaveButtons();
 renderSaved();
