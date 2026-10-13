@@ -15,7 +15,7 @@ import { initStore, listGames, saveGame, deleteGame } from './store.js';
 import { EXTRACTION_PROMPT, buildResponseSchema } from './prompt.js';
 import { renderBoxScoreCanvas, playerLabel, defaultNotes } from './render.js';
 import { firebaseConfig, appCheckSiteKey } from './firebase-config.js';
-import { lineBox, locateRunningScore, missingInkedTotals } from './sheetlines.js';
+import { locateRunningScore, missingInkedTotals } from './sheetlines.js';
 import { busyNote, describeAiError, isTransient, retryMessage } from './ai-errors.js';
 
 const DEFAULT_MODEL = 'gemini-3.7-flash';
@@ -171,7 +171,7 @@ function paintSheetLine(canvas, source, box) {
   const ey = Math.min(source.height, Math.ceil(box.y + box.h));
   const sw = Math.max(1, ex - sx);
   const sh = Math.max(1, ey - sy);
-  const zoom = 3;
+  const zoom = sw > 220 ? 2 : 3;
   canvas.width = sw * zoom;
   canvas.height = sh * zoom;
   const ctx = canvas.getContext('2d');
@@ -455,22 +455,6 @@ function renderEditor() {
     ...boxes.flatMap((boxTeam) => (boxTeam?.warnings || []).filter((w) => !used.has(w))),
     ...leftoverNotes,
   ];
-  const totals = new Set();
-  for (const team of teams) {
-    for (const e of team.scoring || []) {
-      const n = parseInt(e.total, 10);
-      if (n > 0) totals.add(n);
-    }
-  }
-  const sorted = [...totals].sort((a, b) => a - b);
-  const kindLabel = (play) => {
-    if (!play) return '';
-    if (play.kind === 'SKIP') return '—';
-    if (play.kind === 'OTHER') return `+${play.points}?`;
-    if (play.kind === 'FT') return '+1';
-    if (play.kind === '2PT') return '+2';
-    return '+3';
-  };
   const quarterMark = (play, boxTeam) => {
     if (!play || play.kind === 'SKIP' || play.quarter == null) return '';
     const end = boxTeam?.quarterEnds?.[play.quarter];
@@ -478,120 +462,126 @@ function renderEditor() {
   };
   const richer = [...teams].sort((a, b) => (b.scoring?.length || 0) - (a.scoring?.length || 0))[0];
   const photo = runningPhoto(richer);
-  // El acta se lee de izquierda a derecha: dorsal A, total A, total B, dorsal B.
+  // El impreso trae A y B tres veces: filas 1–40, 41–80 y 81–120. No se salta ninguna.
   const placed = teams.map((team, i) => ({ team, i, box: boxes[i], plays: playByTotal[i] }));
   placed.sort((a, b) => (a.team.side === 'B') - (b.team.side === 'B'));
+  const teamA = placed[0] || null;
+  const teamB = placed[1] || null;
+  const maxTotal = teams.reduce((max, team) => Math.max(
+    max,
+    ...(team.scoring || []).map((e) => parseInt(e.total, 10) || 0),
+    parseInt(team.finalScore, 10) || 0,
+  ), 0);
+  const blocks = Math.min(4, Math.max(3, Math.ceil(maxTotal / 40) || 3));
+  const sheetRows = 40;
   const editor = $('editor');
   editor.classList.toggle('has-photo', !!photo);
-  const widths = (pos) => (pos === 0 ? ['58px', '56px', '78px'] : ['56px', '58px', '78px']);
-  const sideCols = placed.flatMap((_, pos) => widths(pos)).join(' ');
-  editor.style.setProperty('--run-cols', `${photo ? '280px ' : ''}${sideCols} minmax(140px, 1fr)`);
-  const totalField = (entry, i, name, split) => `
-      <input type="number" class="run-total${split ? ' run-split' : ''}" data-team="${i}" value="${entry ? esc(entry.total) : ''}" min="1" aria-label="Marcador de ${esc(name)}">`;
-  const jerseyField = (entry, i, name) => `
-      <div class="run-player ${entry?.threePointer ? 'circled' : ''}">
-        <input type="text" class="run-jersey" data-team="${i}" value="${esc(entry?.jersey || '')}" aria-label="Dorsal de ${esc(name)}" inputmode="numeric">
-        <button type="button" class="run-three" data-team="${i}" aria-pressed="${entry?.threePointer ? 'true' : 'false'}" aria-label="Dorsal rodeado: triple" title="Dorsal rodeado: triple"></button>
-      </div>`;
-  const sideCells = (total) => placed.map(({ team, i, box, plays }, pos) => {
-    const found = findScoring(team, total);
-    const entry = found?.entry;
+  const jerseyCell = (slot, total, split) => {
+    if (!slot) return `<td class="rs-jersey${split ? ' split' : ''}"></td>`;
+    const { team, i, plays, box } = slot;
+    const entry = findScoring(team, total)?.entry;
     const play = plays?.get(total);
     const end = quarterMark(play, box);
+    const bad = play && (play.doubts.length || play.kind === 'OTHER' || play.kind === 'SKIP');
+    const side = team.side === 'B' ? 'B' : 'A';
     const name = team.name || `Equipo ${i + 1}`;
-    const del = entry
-      ? `<button type="button" class="run-del" data-team="${i}" title="Quitar la anotación de ${esc(name)}">×</button>`
-      : '';
-    const kind = `<span class="run-kind">${esc(kindLabel(play))}${end ? ` · ${end}` : ''}${del}</span>`;
-    const jersey = jerseyField(entry, i, name);
-    const score = totalField(entry, i, name, pos > 0);
-    return pos === 0 ? `${jersey}${score}${kind}` : `${score}${jersey}${kind}`;
+    return `<td class="rs-jersey${split ? ' split' : ''}${bad ? ' bad' : ''}${end ? ' end' : ''}">
+      <div class="run-player${entry?.threePointer ? ' circled' : ''}">
+        <input type="text" class="run-jersey" data-team="${i}" data-total="${total}" value="${esc(entry?.jersey || '')}" aria-label="Dorsal ${side} ${total} de ${esc(name)}" inputmode="numeric">
+        <button type="button" class="run-three" data-team="${i}" data-total="${total}" aria-pressed="${entry?.threePointer ? 'true' : 'false'}" aria-label="Dorsal rodeado: triple" title="Dorsal rodeado: triple"></button>
+      </div>
+    </td>`;
+  };
+  const numCell = (slot, total) => {
+    const play = slot?.plays?.get(total);
+    const end = quarterMark(play, slot?.box);
+    const slash = play && (play.kind === '2PT' || play.kind === '3PT');
+    return `<td class="rs-num${slash ? ' slash' : ''}${end ? ' end' : ''}"${end ? ` title="Fin de ${end}"` : ''}>${total}</td>`;
+  };
+  const head = Array.from({ length: blocks }, (_, b) => {
+    const split = b > 0 ? ' split' : '';
+    const aName = teamA?.team.name || 'Equipo A';
+    const bName = teamB?.team.name || 'Equipo B';
+    return `<th class="rs-side${split}" colspan="2" title="${esc(aName)}">A</th><th class="rs-side" colspan="2" title="${esc(bName)}">B</th>`;
   }).join('');
-  const body = sorted.map((total) => {
-    const doubts = placed.flatMap(({ team, plays }) => (plays?.get(total)?.doubts || []).map((d) => `${team.name || 'Equipo'}: ${d}`));
-    const bad = placed.some(({ plays }) => {
+  const body = Array.from({ length: sheetRows }, (_, row) => {
+    const totals = Array.from({ length: blocks }, (__, b) => row + 1 + b * 40);
+    const doubts = totals.flatMap((total) => placed.flatMap(({ team, plays }) => {
       const play = plays?.get(total);
-      return play && (play.doubts.length || play.kind === 'OTHER' || play.kind === 'SKIP');
-    });
-    const ended = placed.some(({ plays, box }) => quarterMark(plays?.get(total), box));
-    return `
-    <div class="run ${bad ? 'bad' : ''} ${ended ? 'end' : ''}" data-total="${total}">
-      ${photo ? `<canvas class="run-photo" aria-label="Línea del acta del marcador ${total}"></canvas>` : ''}
-      ${sideCells(total)}
-      <p class="run-doubt">${doubts.map((d) => esc(d)).join(' ')}</p>
-    </div>`;
+      if (!play?.doubts?.length) return [];
+      const side = team.side === 'B' ? 'B' : 'A';
+      return play.doubts.map((d) => `${side} ${total}: ${d}`);
+    }));
+    const cells = totals.map((total, b) => (
+      jerseyCell(teamA, total, b > 0) + numCell(teamA, total) + numCell(teamB, total) + jerseyCell(teamB, total, false)
+    )).join('');
+    return `<tr data-row="${row}">
+      ${photo ? `<td class="rs-photo"><canvas class="run-photo" aria-label="Fila ${row + 1} del acta"></canvas></td>` : ''}
+      ${cells}
+      <td class="rs-doubt">${doubts.map((d) => esc(d)).join('<br>')}</td>
+    </tr>`;
   }).join('');
-  const names = placed.map(({ team }) => `<span class="run-team" style="grid-column: span 3">${esc(team.name || 'Equipo')}</span>`).join('');
-  const labels = placed.map((_, pos) => (
-    pos === 0
-      ? '<span>Nº</span><span>Total</span><span></span>'
-      : '<span>Total</span><span>Nº</span><span></span>'
-  )).join('');
-  const photoHead = photo ? '<span></span>' : '';
-  const photoLabel = photo ? '<span>Acta</span>' : '';
   const extra = general.length
     ? `<ul class="running-extra">${general.map((w) => `<li>${esc(w)}</li>`).join('')}</ul>`
     : '';
   const title = placed.map(({ team }) => team.name).filter(Boolean).join(' · ');
   editor.innerHTML = `
-    <div class="running-title">Running score · ${esc(title || 'Equipos')}</div>
-    <div class="run run-head">${photoHead}${names}<span></span></div>
-    <div class="run run-head">${photoLabel}${labels}<span>Duda</span></div>
-    ${body || '<p class="muted" style="padding:12px">Sin anotaciones.</p>'}
+    <table class="sheet-run">
+      <caption>Running score${title ? ` · ${esc(title)}` : ''}</caption>
+      <thead><tr>
+        ${photo ? '<th class="rs-photo-h"></th>' : ''}
+        ${head}
+        <th class="rs-doubt-h">Duda</th>
+      </tr></thead>
+      <tbody>${body}</tbody>
+    </table>
     ${extra}`;
 
-  editor.querySelectorAll('.run[data-total]').forEach((row) => {
-    const total = parseInt(row.dataset.total, 10);
-    if (photo) {
-      const box = lineBox(photo.grid, total);
-      const canvas = row.querySelector('.run-photo');
-      if (canvas && box) paintSheetLine(canvas, photo.canvas, box);
-    }
-    row.querySelectorAll('.run-total').forEach((input) => {
-      input.addEventListener('change', () => {
-        const team = teams[+input.dataset.team];
-        const next = parseInt(input.value, 10);
-        if (!team || !Number.isFinite(next) || next <= 0) return;
-        const found = findScoring(team, total);
-        if (found) found.entry.total = next;
-        else team.scoring = [...(team.scoring || []), { total: next, jersey: '', threePointer: false, freeThrow: false }];
-        syncJson();
-      });
-    });
-    row.querySelectorAll('.run-jersey').forEach((input) => {
-      input.addEventListener('click', (ev) => ev.stopPropagation());
-      input.addEventListener('change', () => {
-        const team = teams[+input.dataset.team];
-        if (!team) return;
-        const value = input.value.trim();
-        const found = findScoring(team, total);
-        if (!value) {
-          if (found) team.scoring.splice(found.index, 1);
-        } else if (found) found.entry.jersey = value;
-        else ensureScoring(team, total).jersey = value;
-        syncJson();
-      });
-    });
-    row.querySelectorAll('.run-three').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const team = teams[+btn.dataset.team];
-        if (!team) return;
-        const entry = ensureScoring(team, total);
-        const jersey = row.querySelector(`.run-jersey[data-team="${btn.dataset.team}"]`);
-        if (!entry.jersey && jersey) entry.jersey = jersey.value.trim();
-        entry.threePointer = !entry.threePointer;
-        syncJson();
-      });
-    });
-    row.querySelectorAll('.run-del').forEach((btn) => {
-      btn.addEventListener('click', () => {
-        const team = teams[+btn.dataset.team];
-        const found = team && findScoring(team, total);
+  editor.querySelectorAll('tr[data-row]').forEach((row) => {
+    if (!photo) return;
+    const box = sheetRowBox(photo.grid, parseInt(row.dataset.row, 10), blocks);
+    const canvas = row.querySelector('.run-photo');
+    if (canvas && box) paintSheetLine(canvas, photo.canvas, box);
+  });
+  editor.querySelectorAll('.run-jersey').forEach((input) => {
+    input.addEventListener('change', () => {
+      const team = teams[+input.dataset.team];
+      const total = parseInt(input.dataset.total, 10);
+      if (!team || !Number.isFinite(total)) return;
+      const value = input.value.trim();
+      const found = findScoring(team, total);
+      if (!value) {
         if (found) team.scoring.splice(found.index, 1);
-        syncJson();
-      });
+      } else if (found) found.entry.jersey = value;
+      else ensureScoring(team, total).jersey = value;
+      syncJson();
     });
   });
+  editor.querySelectorAll('.run-three').forEach((btn) => {
+    btn.addEventListener('click', () => {
+      const team = teams[+btn.dataset.team];
+      const total = parseInt(btn.dataset.total, 10);
+      if (!team || !Number.isFinite(total)) return;
+      const entry = ensureScoring(team, total);
+      const jersey = editor.querySelector(`.run-jersey[data-team="${btn.dataset.team}"][data-total="${total}"]`);
+      if (!entry.jersey && jersey) entry.jersey = jersey.value.trim();
+      entry.threePointer = !entry.threePointer;
+      syncJson();
+    });
+  });
+}
+
+function sheetRowBox(grid, row, blocks) {
+  if (!grid || row < 0 || row >= grid.rows) return null;
+  const padY = grid.pitch * 0.14;
+  const padX = Math.max(1, grid.blockWidth * 0.03);
+  return {
+    x: grid.x - padX,
+    y: grid.top + row * grid.pitch - padY,
+    w: blocks * grid.blockWidth + padX * 2,
+    h: grid.pitch + padY * 2,
+    row,
+  };
 }
 
 function syncJson() {
