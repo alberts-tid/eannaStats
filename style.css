@@ -10,6 +10,7 @@
   --ok: #E7F6EC;
 }
 * { box-sizing: border-box; }
+[hidden] { display: none !important; }
 body {
   margin: 0;
   font-family: Inter, "Helvetica Neue", Arial, sans-serif;
@@ -48,11 +49,21 @@ body {
 .btn.danger { background: #FDECEC; color: #8A1C1C; }
 .btn.small { padding: 6px 12px; font-size: 13px; }
 .btn:disabled { opacity: .45; cursor: not-allowed; }
+body.busy-open { overflow: hidden; }
+.busy { position: fixed; inset: 0; z-index: 30; display: flex; align-items: center; justify-content: center; background: rgba(107, 114, 128, .72); }
+.busy[hidden] { display: none; }
+.busy-card { width: min(440px, calc(100% - 32px)); background: #fff; border-radius: 16px; padding: 28px 32px; text-align: center; box-shadow: 0 16px 40px rgba(17, 19, 24, .18); }
+.busy-card p { margin: 8px 0; }
+#busy-title { font-size: 18px; font-weight: 700; }
+#busy-wait { color: var(--muted); }
+#busy-detail { min-height: 2.6em; }
+.spinner { width: 36px; height: 36px; margin: 0 auto 8px; border: 3px solid #E5E7EB; border-top-color: #E8A317; border-radius: 50%; animation: spin .8s linear infinite; }
+@keyframes spin { to { transform: rotate(360deg); } }
 .actions { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; margin-top: 14px; }
 .muted { color: var(--muted); }
 .small { font-size: 13px; }
 
-.status { margin-top: 12px; padding: 10px 12px; border-radius: 10px; background: #EEF2FF; }
+.status { margin-top: 12px; padding: 10px 12px; border-radius: 10px; background: #EEF2FF; overflow-wrap: anywhere; }
 .status[data-kind="error"] { background: var(--bad); color: #8A1C1C; }
 .status[data-kind="ok"] { background: var(--ok); color: #14532D; }
 

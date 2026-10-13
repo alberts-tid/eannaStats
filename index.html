@@ -138,6 +138,16 @@
    </div>
   </main>
 
+  <div id="busy" class="busy" hidden>
+    <div class="busy-card" role="status" aria-live="polite" aria-busy="true">
+      <div class="spinner" aria-hidden="true"></div>
+      <p id="busy-title">Analizando el acta con IA</p>
+      <p id="busy-wait">Puede tardar entre 20 segundos y un par de minutos.</p>
+      <p id="busy-detail">Enviando la foto a Gemini.</p>
+      <p id="busy-elapsed" class="muted">Tiempo transcurrido: 0 s</p>
+    </div>
+  </div>
+
   <script type="module" src="app.js"></script>
 </body>
 </html>

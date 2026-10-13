@@ -15,9 +15,10 @@ import { initStore, listGames, saveGame, deleteGame } from './store.js';
 import { EXTRACTION_PROMPT, buildResponseSchema } from './prompt.js';
 import { renderBoxScoreCanvas, playerLabel, defaultNotes } from './render.js';
 import { firebaseConfig, appCheckSiteKey } from './firebase-config.js';
+import { busyNote, describeAiError, isTransient, retryMessage } from './ai-errors.js';
 
 const DEFAULT_MODEL = 'gemini-3.7-flash';
-const MAX_SIDE = 3072;
+const MAX_SIDE = 1600;
 
 const params = new URLSearchParams(location.search);
 // ?emulator usa los emuladores locales de Firebase (Auth 9099, Firestore 8080) para pruebas.
@@ -117,7 +118,7 @@ async function loadImage(file) {
   canvas.width = Math.round(img.naturalWidth * scale);
   canvas.height = Math.round(img.naturalHeight * scale);
   canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
-  const dataUrl = canvas.toDataURL('image/jpeg', 0.92);
+  const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
   URL.revokeObjectURL(url);
   state.image = { base64: dataUrl.split(',')[1], mimeType: 'image/jpeg', name: file.name };
   $('preview').src = dataUrl;
@@ -140,6 +141,35 @@ localStorage.removeItem('acta.model.openrouter');
 $('model').value = localStorage.getItem('acta.model.gemini') || localStorage.getItem('acta.model') || DEFAULT_MODEL;
 $('model').addEventListener('change', () => localStorage.setItem('acta.model.gemini', $('model').value.trim()));
 
+let busyTimer = null;
+
+function showBusy() {
+  $('busy').hidden = false;
+  document.body.classList.add('busy-open');
+  $('busy-title').textContent = 'Analizando el acta con IA';
+  $('busy-detail').dataset.locked = '';
+  const started = Date.now();
+  const tick = () => {
+    const seconds = Math.round((Date.now() - started) / 1000);
+    $('busy-elapsed').textContent = `Tiempo transcurrido: ${seconds} s`;
+    if (!$('busy-detail').dataset.locked) $('busy-detail').textContent = busyNote(seconds);
+  };
+  tick();
+  busyTimer = setInterval(tick, 1000);
+}
+
+function setBusyDetail(text) {
+  $('busy-detail').dataset.locked = '1';
+  $('busy-detail').textContent = text;
+}
+
+function hideBusy() {
+  clearInterval(busyTimer);
+  busyTimer = null;
+  $('busy').hidden = true;
+  document.body.classList.remove('busy-open');
+}
+
 async function analyze() {
   const modelName = $('model').value.trim() || DEFAULT_MODEL;
   const model = getGenerativeModel(ai, {
@@ -148,21 +178,24 @@ async function analyze() {
       responseMimeType: 'application/json',
       responseSchema: buildResponseSchema(Schema),
       temperature: 0,
-      thinkingConfig: { thinkingLevel: ThinkingLevel.HIGH },
+      // gemini-3.7-flash rechaza MINIMAL con un 400. HIGH alarga tanto la
+      // respuesta que Google la corta con 503 «Deadline expired».
+      thinkingConfig: { thinkingLevel: ThinkingLevel.LOW },
     },
-  }, { timeout: 300000 });
+  }, { timeout: 180000 });
   const extra = $('hint').value.trim();
   const prompt = extra ? `${EXTRACTION_PROMPT}\n\nExtra context from the user: ${extra}` : EXTRACTION_PROMPT;
   const parts = [prompt, { inlineData: { data: state.image.base64, mimeType: state.image.mimeType } }];
-  const delays = [3000, 8000, 15000];
+  const delays = [8000, 20000];
   for (let attempt = 0; ; attempt++) {
     try {
       const result = await model.generateContent(parts);
       return JSON.parse(result.response.text());
     } catch (err) {
       if (attempt >= delays.length || !isTransient(err)) throw err;
-      setStatus(`Gemini está saturado; reintentando (${attempt + 1}/${delays.length})…`, 'info');
+      setBusyDetail(retryMessage(err, attempt + 1, delays.length));
       await new Promise((r) => setTimeout(r, delays[attempt]));
+      $('busy-detail').dataset.locked = '';
     }
   }
 }
@@ -170,42 +203,20 @@ async function analyze() {
 $('btn-analyze').addEventListener('click', async () => {
   const btn = $('btn-analyze');
   btn.disabled = true;
-  setStatus('Analizando el acta con IA… puede tardar entre 20 segundos y un par de minutos.', 'info');
+  setStatus('');
+  showBusy();
   try {
     const extraction = await analyze();
     setExtraction(extraction);
     setStatus('Acta analizada. Revisa los avisos y corrige dorsales si hace falta.', 'ok');
   } catch (err) {
     console.error(err);
-    setStatus(describeError(err), 'error');
+    setStatus(describeAiError(err, $('model').value.trim() || DEFAULT_MODEL), 'error');
   } finally {
+    hideBusy();
     updateAnalyzeButton();
   }
 });
-
-function isTransient(err) {
-  return /\[(500|503|429)\b|high demand|overloaded|UNAVAILABLE|RESOURCE_EXHAUSTED/i.test(String(err?.message || err));
-}
-
-function describeError(err) {
-  const msg = String(err?.message || err);
-  const code = String(err?.code || err?.status || '');
-  const detail = ` (Detalle: ${msg}${code ? ` [${code}]` : ''})`;
-  if (/api-not-enabled/.test(code) || /SERVICE_DISABLED|has not been used/i.test(msg)) {
-    return `Firebase AI Logic no está activado en el proyecto. Actívalo en Firebase Console → AI Logic → Get started (Gemini Developer API).${detail}`;
-  }
-  if (/App Check|appCheck|app-check/i.test(msg + code)) {
-    return appCheckSiteKey
-      ? `App Check ha rechazado la petición. En localhost registra el token de depuración que aparece en la consola del navegador (F12) en Firebase Console → App Check → Administrar tokens de depuración.${detail}`
-      : `AI Logic exige App Check y esta web no lo tiene configurado.${detail}`;
-  }
-  if (/not found|404/i.test(msg)) return `El modelo «${$('model').value.trim() || DEFAULT_MODEL}» no está disponible. Prueba otro en «Opciones».${detail}`;
-  if (/prepayment credits are depleted/i.test(msg)) return `El saldo de prepago de Gemini está agotado. Recárgalo en AI Studio, proyecto eannastats, y vuelve a intentarlo.${detail}`;
-  if (/high demand|overloaded|UNAVAILABLE|\[50[03]/i.test(msg)) return `Gemini está saturado ahora mismo. Espera un minuto y vuelve a intentarlo.${detail}`;
-  if (/rate-limited|quota|429|RESOURCE_EXHAUSTED/i.test(msg + code)) return `Se ha superado la cuota de Gemini. Si el detalle habla de prepago, recarga el saldo en AI Studio.${detail}`;
-  if (/JSON/i.test(msg)) return `La IA ha devuelto una respuesta que no es JSON válido. Vuelve a intentarlo.${detail}`;
-  return `Error al analizar: ${msg}`;
-}
 
 $('btn-demo').addEventListener('click', async () => {
   const res = await fetch('fixtures/eanna-drogheda.json');
