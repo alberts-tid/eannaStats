@@ -192,6 +192,38 @@ test('acumula estadísticas por jugador entre partidos', () => {
   assert.ok(agg.rows.some((r) => !r.onRoster && r.number === '12'));
 });
 
+test('los cuartos en contra salen de la casilla de resultados si no hay marcador del rival', () => {
+  const extraction = {
+    game: { date: '19/09/2026' },
+    teams: [
+      {
+        name: 'Éanna BC',
+        players: [{ number: '6', name: 'Jamie Charles', fouls: 1, played: true }],
+        scoring: [{ total: 2, jersey: '6' }],
+        quarterEndTotals: [2],
+        finalScore: 2,
+      },
+      {
+        name: 'Drogheda Wolves',
+        players: [],
+        scoring: [],
+        quarterScores: [13, 8, 11, 6],
+        finalScore: 38,
+      },
+    ],
+  };
+  const rival = opponentLine(computeBoxScore(extraction).teams[1]);
+  assert.equal(rival.points, 38);
+  assert.deepEqual(rival.quarters, [13, 8, 11, 6]);
+  assert.equal(rival.fg2, null);
+  assert.equal(rival.fouls, null);
+  const agg = aggregateTeam([{ id: 'old', extraction }], findEannaKey([{ extraction }]));
+  assert.deepEqual(agg.matches[0].against.quarters, [13, 8, 11, 6]);
+  assert.equal(agg.matches[0].against.fouls, null);
+  assert.equal(agg.matches[0].foulsFor, 1);
+  assert.deepEqual(agg.matches[0].quartersFor, [2, 0, 0, 0]);
+});
+
 test('entiende formatos de fecha habituales', () => {
   assert.equal(parseGameDate('19/09/2026'), '2026-09-19');
   assert.equal(parseGameDate('1-9-26'), '2026-09-01');

@@ -230,6 +230,31 @@ export function parseGameDate(value) {
   return '';
 }
 
+/**
+ * Puntos de cada cuarto. Si hay marcador corrido, salen de ahí.
+ * Si no, de los finales de cuarto (o de la casilla de resultados, que ya está
+ * convertida en finales acumulados).
+ */
+export function periodScores(team) {
+  if (!team) return null;
+  if (team.hasScoring) return [...team.totals.quarters];
+  const ends = Array.isArray(team.quarterEnds) ? team.quarterEnds : [];
+  const out = [];
+  let prev = 0;
+  let any = false;
+  for (let i = 0; i < 4; i++) {
+    const end = ends[i];
+    if (!Number.isFinite(end) || end === Infinity) {
+      out.push(null);
+      continue;
+    }
+    out.push(end - prev);
+    prev = end;
+    any = true;
+  }
+  return any ? out : null;
+}
+
 /** Lo que hizo el rival: puntos del marcador final, tiros si hay running score y faltas si hay lista. */
 export function opponentLine(team) {
   if (!team) return null;
@@ -242,7 +267,7 @@ export function opponentLine(team) {
     fg3: shots ? team.totals.fg3 : null,
     ftm: shots ? team.totals.ftm : null,
     fouls: foulsKnown ? team.totals.fouls : null,
-    quarters: shots ? [...team.totals.quarters] : null,
+    quarters: periodScores(team),
   };
 }
 
@@ -308,7 +333,7 @@ export function aggregateTeam(games, key) {
       pointsFor: team.finalScore,
       pointsAgainst: against ? against.points : null,
       foulsFor: team.rows.some((r) => r.onRoster) ? team.totals.fouls : null,
-      quartersFor: team.hasScoring ? [...team.totals.quarters] : null,
+      quartersFor: periodScores(team),
       against,
     });
   }
