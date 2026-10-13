@@ -15,5 +15,6 @@ test('la foto va dentro del recuadro y solo hay el botón de analizar', () => {
 test('el marcador leído es una columna de running score', () => {
   assert.match(html, /Running score/);
   assert.match(html, /id="editor" class="running"/);
+  assert.match(html, /línea real de la foto/);
   assert.doesNotMatch(html, /id="warnings"/);
 });

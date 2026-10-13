@@ -15,10 +15,12 @@ import { initStore, listGames, saveGame, deleteGame } from './store.js';
 import { EXTRACTION_PROMPT, buildResponseSchema } from './prompt.js';
 import { renderBoxScoreCanvas, playerLabel, defaultNotes } from './render.js';
 import { firebaseConfig, appCheckSiteKey } from './firebase-config.js';
+import { lineBox, locateRunningScore } from './sheetlines.js';
 import { busyNote, describeAiError, isTransient, retryMessage } from './ai-errors.js';
 
 const DEFAULT_MODEL = 'gemini-3.7-flash';
 const MAX_SIDE = 1600;
+const DETECT_WIDTH = 720;
 
 const params = new URLSearchParams(location.search);
 // ?emulator usa los emuladores locales de Firebase (Auth 9099, Firestore 8080) para pruebas.
@@ -122,7 +124,7 @@ async function loadImage(file) {
   canvas.getContext('2d').drawImage(img, 0, 0, canvas.width, canvas.height);
   const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
   URL.revokeObjectURL(url);
-  state.image = { base64: dataUrl.split(',')[1], mimeType: 'image/jpeg', name: file.name };
+  state.image = { base64: dataUrl.split(',')[1], mimeType: 'image/jpeg', name: file.name, sheet: buildSheet(canvas) };
   $('preview').src = dataUrl;
   $('preview').hidden = false;
   $('drop-empty').hidden = true;
@@ -130,6 +132,53 @@ async function loadImage(file) {
   $('drop').title = 'Cambiar foto';
   setStatus('');
   updateAnalyzeButton();
+  if (state.box && !state.currentId) renderEditor();
+}
+
+function buildSheet(source) {
+  const scale = Math.min(1, DETECT_WIDTH / source.width);
+  const width = Math.max(1, Math.round(source.width * scale));
+  const height = Math.max(1, Math.round(source.height * scale));
+  const canvas = document.createElement('canvas');
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext('2d', { willReadFrequently: true });
+  ctx.drawImage(source, 0, 0, width, height);
+  const { data } = ctx.getImageData(0, 0, width, height);
+  const gray = new Uint8Array(width * height);
+  for (let i = 0, p = 0; i < gray.length; i += 1, p += 4) {
+    gray[i] = (data[p] * 54 + data[p + 1] * 183 + data[p + 2] * 19) >> 8;
+  }
+  return { canvas, gray, width, height };
+}
+
+function paintSheetLine(canvas, source, box) {
+  const sx = Math.max(0, Math.floor(box.x));
+  const sy = Math.max(0, Math.floor(box.y));
+  const ex = Math.min(source.width, Math.ceil(box.x + box.w));
+  const ey = Math.min(source.height, Math.ceil(box.y + box.h));
+  const sw = Math.max(1, ex - sx);
+  const sh = Math.max(1, ey - sy);
+  const zoom = 3;
+  canvas.width = sw * zoom;
+  canvas.height = sh * zoom;
+  const ctx = canvas.getContext('2d');
+  ctx.imageSmoothingEnabled = false;
+  ctx.drawImage(source, sx, sy, sw, sh, 0, 0, canvas.width, canvas.height);
+}
+
+let sheetCache = null;
+
+function runningPhoto(team) {
+  const sheet = state.image?.sheet;
+  if (!sheet || state.currentId || !team?.scoring?.length) return null;
+  const side = team.side === 'B' ? 'B' : 'A';
+  const totals = team.scoring.map((e) => parseInt(e.total, 10)).filter((t) => t > 0);
+  const key = `${side}|${totals.join(',')}|${sheet.width}x${sheet.height}`;
+  if (!sheetCache || sheetCache.key !== key || sheetCache.sheet !== sheet) {
+    sheetCache = { key, sheet, grid: locateRunningScore(sheet.gray, sheet.width, sheet.height, totals, { side }) };
+  }
+  return sheetCache.grid ? { grid: sheetCache.grid, canvas: sheet.canvas } : null;
 }
 
 $('file').addEventListener('change', (ev) => loadImage(ev.target.files[0]));
@@ -341,11 +390,14 @@ function renderEditor() {
     const end = boxTeam.quarterEnds?.[play.quarter];
     return end === play.total && Number.isFinite(end) ? QUARTER_LABELS[play.quarter] : '';
   };
+  const photo = runningPhoto(team);
+  $('editor').classList.toggle('has-photo', !!photo);
   const body = rows.map(({ e, idx, play }) => {
     const doubts = play?.doubts || [];
     const end = quarterMark(play);
     return `
     <div class="run ${doubts.length || play?.kind === 'OTHER' || play?.kind === 'SKIP' ? 'bad' : ''} ${end ? 'end' : ''}" data-idx="${idx}">
+      ${photo ? `<canvas class="run-photo" aria-label="Línea del acta del marcador ${esc(e.total)}"></canvas>` : ''}
       <input type="number" class="run-total" value="${esc(e.total)}" min="1" aria-label="Marcador acumulado">
       <div class="run-player ${e.threePointer ? 'circled' : ''}">
         <input type="text" class="run-jersey" value="${esc(e.jersey)}" aria-label="Dorsal" inputmode="numeric">
@@ -359,14 +411,22 @@ function renderEditor() {
   const extra = general.length
     ? `<ul class="running-extra">${general.map((w) => `<li>${esc(w)}</li>`).join('')}</ul>`
     : '';
+  const head = photo
+    ? '<span>Acta</span><span>Total</span><span>Nº</span><span></span><span>Duda</span><span></span>'
+    : '<span>Total</span><span>Nº</span><span></span><span>Duda</span><span></span>';
   $('editor').innerHTML = `
     <div class="running-title">Running score · ${esc(team?.name || 'Equipo')}</div>
-    <div class="run run-head"><span>Total</span><span>Nº</span><span></span><span>Duda</span><span></span></div>
+    <div class="run run-head">${head}</div>
     ${body || '<p class="muted" style="padding:12px">Sin anotaciones.</p>'}
     ${extra}`;
 
   $('editor').querySelectorAll('.run[data-idx]').forEach((row) => {
     const entry = team.scoring[+row.dataset.idx];
+    if (photo) {
+      const box = lineBox(photo.grid, entry.total);
+      const canvas = row.querySelector('.run-photo');
+      if (canvas && box) paintSheetLine(canvas, photo.canvas, box);
+    }
     row.querySelector('.run-total').addEventListener('change', (ev) => { entry.total = parseInt(ev.target.value, 10); syncJson(); });
     const jersey = row.querySelector('.run-jersey');
     jersey.addEventListener('click', (ev) => ev.stopPropagation());
