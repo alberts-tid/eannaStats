@@ -21,6 +21,8 @@ test('subir y borrar actas queda tras el login; partidos y acumulado se ven sin 
   assert.match(html, /id="btn-delete-public"/);
   assert.match(html, /id="public-game"/);
   assert.match(html, /lectura pública/);
+  const games = html.slice(html.indexOf('id="view-games"'), html.indexOf('id="view-totals"'));
+  assert.doesNotMatch(games, /team-select|public-tabs/);
   const totals = html.slice(html.indexOf('id="view-totals"'));
   assert.doesNotMatch(totals, /team-select/);
   assert.match(totals, /Éanna · acumulado/);

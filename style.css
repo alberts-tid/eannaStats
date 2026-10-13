@@ -172,8 +172,6 @@ tr.off .chip { background: #F6E3C1; }
 .banner { display: flex; justify-content: space-between; align-items: center; gap: 10px; margin-top: 18px; padding: 10px 14px; border-radius: 12px; background: #FFF7E6; border: 1px solid #F5D9A0; }
 .view-head { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-bottom: 8px; }
 .view-head h2 { margin: 0; }
-.team-pick { font-size: 13px; color: var(--muted); display: flex; gap: 8px; align-items: center; }
-.team-pick select { padding: 7px 10px; border-radius: 8px; border: 1px solid var(--line); font: inherit; color: var(--ink); min-width: 200px; }
 .card h3 { font-size: 15px; margin: 22px 0 6px; }
 table.list { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }
 table.list th { font-size: 12px; color: var(--muted); text-transform: uppercase; padding: 8px 6px; text-align: left; border-bottom: 1px solid var(--line); }

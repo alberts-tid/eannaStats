@@ -9,7 +9,7 @@ import {
   getAI, getGenerativeModel, GoogleAIBackend, Schema, ThinkingLevel,
 } from 'https://www.gstatic.com/firebasejs/13.0.0/firebase-ai.js';
 import {
-  computeBoxScore, aggregateTeam, listTeams, teamKey, findEannaKey, opponentLine, QUARTER_LABELS,
+  computeBoxScore, aggregateTeam, teamKey, findEannaKey, opponentLine, QUARTER_LABELS,
 } from './boxscore.js';
 import { initStore, listGames, saveGame, deleteGame } from './store.js';
 import { EXTRACTION_PROMPT, buildResponseSchema } from './prompt.js';
@@ -645,15 +645,17 @@ $('btn-new').addEventListener('click', () => {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 });
 
+function eannaIndex(box) {
+  const key = findEannaKey([{ extraction: { teams: box.teams || [] } }]);
+  const idx = (box.teams || []).findIndex((t) => teamKey(t.name) === key);
+  return idx >= 0 ? idx : 0;
+}
+
 function showGame(id) {
   const game = state.games.find((g) => g.id === id);
   if (!game?.extraction) return;
   state.readingId = id;
-  const box = computeBoxScore(game.extraction);
-  const teams = listTeams(state.games);
-  const key = teams.some((t) => t.key === state.teamKey) ? state.teamKey : (teams[0]?.key || '');
-  const preferred = box.teams.findIndex((t) => teamKey(t.name) === key);
-  state.readTeam = preferred >= 0 ? preferred : 0;
+  state.readTeam = eannaIndex(computeBoxScore(game.extraction));
   setView('games');
   $('public-game').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
@@ -684,15 +686,8 @@ document.querySelectorAll('.view-tab').forEach((b) => b.addEventListener('click'
 function setTeam(key) {
   state.teamKey = key;
   localStorage.setItem('acta.team', key);
-  const game = readingGame();
-  if (game?.extraction) {
-    const box = computeBoxScore(game.extraction);
-    const preferred = box.teams.findIndex((t) => teamKey(t.name) === key);
-    if (preferred >= 0) state.readTeam = preferred;
-  }
   renderSaved();
 }
-document.querySelectorAll('.team-select').forEach((sel) => sel.addEventListener('change', () => setTeam(sel.value)));
 
 async function refreshGames() {
   $('games-status').textContent = 'Cargando partidos…';
@@ -725,17 +720,9 @@ function renderPublicDetail() {
   }
   host.hidden = false;
   const box = computeBoxScore(game.extraction);
-  state.readTeam = Math.max(0, Math.min(state.readTeam, box.teams.length - 1));
+  state.readTeam = eannaIndex(box);
   const team = box.teams[state.readTeam];
-  $('public-tabs').innerHTML = box.teams.map((t, n) => `
-    <button type="button" class="tab ${n === state.readTeam ? 'active' : ''}" data-i="${n}">
-      ${esc(t.name || `Equipo ${t.side || n + 1}`)} <span>${t.finalScore}</span>
-    </button>`).join('');
-  $('public-tabs').querySelectorAll('button').forEach((b) => b.addEventListener('click', () => {
-    state.readTeam = +b.dataset.i;
-    renderPublicDetail();
-  }));
-  $('public-name').textContent = team?.name || 'Equipo';
+  $('public-name').textContent = team?.name || 'Éanna';
   $('public-sub').textContent = gameSubtitle(box, state.readTeam);
   $('public-score').textContent = scoreLine(box, state.readTeam);
   $('public-table').innerHTML = boxTableHtml(box, state.readTeam, { against: false });
@@ -760,15 +747,8 @@ $('btn-public-csv').addEventListener('click', () => {
 
 function renderSaved() {
   $('games-count').textContent = state.games.length ? String(state.games.length) : '';
-  const teams = listTeams(state.games);
-  const key = teams.some((t) => t.key === state.teamKey) ? state.teamKey : (teams[0]?.key || '');
-  if (key) state.teamKey = key;
-  document.querySelectorAll('.team-select').forEach((sel) => {
-    sel.innerHTML = teams.length
-      ? teams.map((t) => `<option value="${esc(t.key)}" ${t.key === key ? 'selected' : ''}>${esc(t.name)} (${t.games})</option>`).join('')
-      : '<option value="">—</option>';
-    sel.disabled = !teams.length;
-  });
+  const key = findEannaKey(state.games);
+  state.teamKey = key;
 
   if (!state.games.length) {
     const msg = state.gamesLoaded
@@ -786,7 +766,7 @@ function renderSaved() {
 
   const agg = aggregateTeam(state.games, key);
   renderGamesList(agg);
-  renderTotals(aggregateTeam(state.games, findEannaKey(state.games)));
+  renderTotals(agg);
   renderPublicDetail();
 }
 
