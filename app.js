@@ -9,7 +9,7 @@ import {
   getAI, getGenerativeModel, GoogleAIBackend, Schema, ThinkingLevel,
 } from 'https://www.gstatic.com/firebasejs/13.0.0/firebase-ai.js';
 import {
-  computeBoxScore, aggregateTeam, listTeams, teamKey, QUARTER_LABELS,
+  computeBoxScore, aggregateTeam, listTeams, teamKey, opponentLine, QUARTER_LABELS,
 } from './boxscore.js';
 import { initStore, listGames, saveGame, deleteGame } from './store.js';
 import { EXTRACTION_PROMPT, buildResponseSchema } from './prompt.js';
@@ -330,6 +330,16 @@ function recompute() {
   renderResults();
 }
 
+function againstFoot(box) {
+  const other = box.teams.find((_, i) => i !== state.teamIndex);
+  const line = opponentLine(other);
+  if (!line) return '';
+  const num = (v) => (v === null || v === undefined ? '—' : v);
+  const quarters = line.quarters || [null, null, null, null];
+  const label = `En contra${line.name ? ` · ${line.name}` : ''}`;
+  return `<tr class="against"><td></td><td>${esc(label)}</td>${[line.points, line.fg2, line.fg3, line.ftm, line.fouls, ...quarters].map((v) => `<td>${num(v)}</td>`).join('')}</tr>`;
+}
+
 function gameSubtitle(box) {
   const g = box.game || {};
   const other = box.teams.find((_, i) => i !== state.teamIndex);
@@ -376,7 +386,8 @@ function renderResults() {
         ${[r.pts, r.fg2, r.fg3, r.ftm, r.fouls, ...r.quarters].map((v, k) => `<td class="${cls(v)} ${k === 0 ? 'pts' : ''}">${num(v)}</td>`).join('')}
       </tr>`).join('');
     const t = team.totals;
-    const foot = `<tr><td></td><td>TOTAL</td>${[t.pts, t.fg2, t.fg3, t.ftm, t.fouls, ...t.quarters].map((v) => `<td>${v}</td>`).join('')}</tr>`;
+    const own = `<tr><td></td><td>TOTAL</td>${[t.pts, t.fg2, t.fg3, t.ftm, t.fouls, ...t.quarters].map((v) => `<td>${v}</td>`).join('')}</tr>`;
+    const foot = own + againstFoot(box);
     $('table-wrap').innerHTML = `
       <table class="box">
         <thead><tr>${head.map((h, i) => `<th class="${i < 2 ? 'left' : ''}">${h}</th>`).join('')}</tr></thead>
@@ -502,6 +513,7 @@ $('btn-jpg').addEventListener('click', async () => {
     subtitle: gameSubtitle(box),
     score: scoreLine(box),
     badge: 'FINAL',
+    against: opponentLine(box.teams.find((_, i) => i !== state.teamIndex)),
   });
   canvas.toBlob((blob) => {
     const a = document.createElement('a');
@@ -518,6 +530,12 @@ $('btn-csv').addEventListener('click', () => {
   const lines = [header, ...team.rows.map((r) => [r.number, playerLabel(r), r.pts, r.fg2, r.fg3, r.ftm, r.fouls ?? '', ...r.quarters])];
   const t = team.totals;
   lines.push(['', 'TOTAL', t.pts, t.fg2, t.fg3, t.ftm, t.fouls, ...t.quarters]);
+  const against = opponentLine(state.box.teams.find((_, i) => i !== state.teamIndex));
+  if (against) {
+    const cell = (v) => (v === null || v === undefined ? '' : v);
+    const quarters = against.quarters || [null, null, null, null];
+    lines.push(['', `En contra${against.name ? ` · ${against.name}` : ''}`, cell(against.points), cell(against.fg2), cell(against.fg3), cell(against.ftm), cell(against.fouls), ...quarters.map(cell)]);
+  }
   const csv = lines.map((l) => l.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
   const a = document.createElement('a');
   a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
@@ -668,6 +686,7 @@ function renderSaved() {
     const msg = '<p class="muted">Inicia sesión para ver los partidos guardados.</p>';
     $('games-list').innerHTML = msg;
     $('totals-summary').innerHTML = '';
+    $('totals-against').innerHTML = '';
     $('totals-table').innerHTML = msg;
     $('totals-matrix').innerHTML = '';
     return;
@@ -676,6 +695,7 @@ function renderSaved() {
     const msg = state.gamesLoaded ? '<p class="muted">Todavía no hay partidos guardados. Analiza un acta y pulsa «Guardar partido».</p>' : '';
     $('games-list').innerHTML = msg;
     $('totals-summary').innerHTML = '';
+    $('totals-against').innerHTML = '';
     $('totals-table').innerHTML = msg;
     $('totals-matrix').innerHTML = '';
     return;
@@ -713,6 +733,35 @@ function renderGamesList(agg) {
   $('games-list').querySelectorAll('tr[data-id]').forEach((tr) => tr.addEventListener('click', () => openGame(tr.dataset.id)));
 }
 
+function againstStat(label, stat, n) {
+  const scope = stat.games && stat.games < n ? ` · ${stat.games} de ${n}` : '';
+  return [`${label}${scope}`, stat.games ? String(stat.total) : '—'];
+}
+
+function renderAgainstTable(agg) {
+  const num = (v) => (v === null || v === undefined ? '—' : v);
+  const rows = agg.matches.map((m) => `
+    <tr>
+      <td>${esc(m.dateLabel || '—')}</td>
+      <td class="name">${esc(m.opponent || '—')}</td>
+      <td>${num(m.against?.points)}</td>
+      <td>${num(m.against?.fg2)}</td>
+      <td>${num(m.against?.fg3)}</td>
+      <td>${num(m.against?.ftm)}</td>
+      <td>${num(m.against?.fouls)}</td>
+    </tr>`).join('');
+  const a = agg.against;
+  const tot = (stat) => (stat.games ? stat.total : '—');
+  $('totals-against').innerHTML = `
+    <h3>En contra</h3>
+    <p class="muted small">Lo que hicieron los rivales. Cada acta nueva se suma: puntos, tiros de 2, tiros de 3 y faltas. Si un acta no trae el running score o la lista del rival, esa casilla queda en blanco y no entra en el total.</p>
+    <table class="box">
+      <thead><tr><th class="left">Fecha</th><th class="left">Rival</th><th>Puntos</th><th>Tiros de 2</th><th>Tiros de 3</th><th>Tiros libres</th><th>Faltas</th></tr></thead>
+      <tbody>${rows}</tbody>
+      <tfoot><tr><td></td><td>TOTAL</td><td>${tot(a.points)}</td><td>${tot(a.fg2)}</td><td>${tot(a.fg3)}</td><td>${tot(a.ftm)}</td><td>${tot(a.fouls)}</td></tr></tfoot>
+    </table>`;
+}
+
 function renderTotals(agg) {
   const n = agg.matches.length;
   const stats = [
@@ -720,9 +769,13 @@ function renderTotals(agg) {
     ['Balance', `${agg.record.w}-${agg.record.l}`],
     ['Puntos a favor / partido', fmt1(n ? agg.pointsFor / n : NaN)],
     ['Puntos en contra / partido', fmt1(n ? agg.pointsAgainst / n : NaN)],
+    againstStat('Tiros de 2 en contra', agg.against.fg2, n),
+    againstStat('Tiros de 3 en contra', agg.against.fg3, n),
+    againstStat('Faltas en contra', agg.against.fouls, n),
     ['Con estadísticas', `${agg.gamesWithStats} de ${n}`],
   ];
   $('totals-summary').innerHTML = stats.map(([k, v]) => `<div class="stat"><b>${esc(v)}</b><span>${esc(k)}</span></div>`).join('');
+  renderAgainstTable(agg);
 
   if (!agg.rows.length) {
     $('totals-table').innerHTML = '<p class="muted">Ningún partido de este equipo tiene marcador por jugador.</p>';

@@ -230,6 +230,27 @@ export function parseGameDate(value) {
   return '';
 }
 
+/** Lo que hizo el rival: puntos del marcador final, tiros si hay running score y faltas si hay lista. */
+export function opponentLine(team) {
+  if (!team) return null;
+  const shots = !!team.hasScoring;
+  const foulsKnown = (team.rows || []).some((r) => r.onRoster);
+  return {
+    name: team.name || '',
+    points: Number.isFinite(team.finalScore) ? team.finalScore : null,
+    fg2: shots ? team.totals.fg2 : null,
+    fg3: shots ? team.totals.fg3 : null,
+    ftm: shots ? team.totals.ftm : null,
+    fouls: foulsKnown ? team.totals.fouls : null,
+    quarters: shots ? [...team.totals.quarters] : null,
+  };
+}
+
+function sumAgainst(matches, field) {
+  const known = matches.map((m) => m.against?.[field]).filter((v) => Number.isFinite(v));
+  return { total: known.reduce((a, v) => a + v, 0), games: known.length };
+}
+
 export function listTeams(games) {
   const teams = new Map();
   for (const g of games) {
@@ -257,6 +278,7 @@ export function aggregateTeam(games, key) {
     if (idx < 0) continue;
     const team = box.teams[idx];
     const opp = box.teams.find((_, i) => i !== idx);
+    const against = opponentLine(opp);
     const date = parseGameDate(box.game?.date);
     matches.push({
       id: g.id,
@@ -267,7 +289,8 @@ export function aggregateTeam(games, key) {
       teamIndex: idx,
       team,
       pointsFor: team.finalScore,
-      pointsAgainst: opp ? opp.finalScore : null,
+      pointsAgainst: against ? against.points : null,
+      against,
     });
   }
   matches.sort((a, b) => (a.date || '9999').localeCompare(b.date || '9999'));
@@ -309,5 +332,12 @@ export function aggregateTeam(games, key) {
     gamesWithStats: scored.length,
     pointsFor: matches.reduce((a, m) => a + (m.pointsFor || 0), 0),
     pointsAgainst: matches.reduce((a, m) => a + (m.pointsAgainst || 0), 0),
+    against: {
+      points: sumAgainst(matches, 'points'),
+      fg2: sumAgainst(matches, 'fg2'),
+      fg3: sumAgainst(matches, 'fg3'),
+      ftm: sumAgainst(matches, 'ftm'),
+      fouls: sumAgainst(matches, 'fouls'),
+    },
   };
 }

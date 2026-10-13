@@ -80,6 +80,7 @@ export function renderBoxScoreCanvas(team, opts = {}) {
   const headRowH = 42;
   const rowH = 46;
   const totalH = 50;
+  const against = opts.against || null;
   const notes = opts.notes || defaultNotes(team);
 
   const measure = document.createElement('canvas').getContext('2d');
@@ -88,7 +89,8 @@ export function renderBoxScoreCanvas(team, opts = {}) {
   const noteLines = notes.flatMap((n) => wrap(measure, n, cardW - 48));
   const notesH = noteLines.length ? 24 + noteLines.length * 22 : 0;
   const bottomPad = 22;
-  const tableH = headRowH + rowH * team.rows.length + totalH;
+  const againstH = against ? rowH : 0;
+  const tableH = headRowH + rowH * team.rows.length + totalH + againstH;
   const H = margin + headerH + gap + tableH + notesH + bottomPad + margin;
 
   const canvas = document.createElement('canvas');
@@ -207,6 +209,23 @@ export function renderBoxScoreCanvas(team, opts = {}) {
     cell(v, cols[k], y, totalH, { color: '#FFFFFF', weight: 700, size: k === 0 ? 20 : 18 });
   });
   y += totalH;
+
+  if (against) {
+    ctx.fillStyle = '#EEF2FF';
+    ctx.fillRect(x0, y, cardW, againstH);
+    ctx.fillStyle = C.text;
+    ctx.font = font(600, 16);
+    ctx.textAlign = 'left';
+    let label = `En contra${against.name ? ` · ${against.name}` : ''}`;
+    const maxLabel = playerW - 12;
+    while (ctx.measureText(label).width > maxLabel && label.length > 12) label = `${label.slice(0, -2)}…`;
+    ctx.fillText(label, x0 + padX + 4, y + againstH / 2 + 1);
+    const quarters = against.quarters || [null, null, null, null];
+    [against.points, against.fg2, against.fg3, against.ftm, against.fouls, ...quarters].forEach((v, k) => {
+      cell(v, cols[k], y, againstH, { color: C.text, weight: 600, size: k === 0 ? 20 : 18 });
+    });
+    y += againstH;
+  }
 
   if (noteLines.length) {
     y += 22;

@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  computeBoxScore, computeTeamBoxScore, aggregateTeam, listTeams, teamKey, parseGameDate,
+  computeBoxScore, computeTeamBoxScore, aggregateTeam, listTeams, teamKey, opponentLine, parseGameDate,
 } from '../boxscore.js';
 
 const fixture = JSON.parse(readFileSync(new URL('../fixtures/eanna-drogheda.json', import.meta.url), 'utf8'));
@@ -155,6 +155,21 @@ test('acumula estadísticas por jugador entre partidos', () => {
   assert.deepEqual(agg.record, { w: 2, l: 1 });
   assert.equal(agg.gamesWithStats, 2);
   assert.equal(agg.pointsFor, 114 + 6 + 70);
+  assert.equal(agg.matches[0].against.points, 38);
+  assert.equal(agg.matches[0].against.fg2, 11);
+  assert.equal(agg.matches[0].against.fg3, 2);
+  assert.equal(agg.matches[0].against.ftm, 10);
+  assert.equal(agg.matches[0].against.fouls, 16);
+  assert.deepEqual(agg.matches[0].against.quarters, [13, 8, 11, 6]);
+  assert.equal(agg.matches[1].against.points, 50);
+  assert.equal(agg.matches[1].against.fg2, null);
+  assert.equal(agg.matches[1].against.fouls, null);
+  assert.deepEqual(agg.against.points, { total: 38 + 50 + 60, games: 3 });
+  assert.deepEqual(agg.against.fg2, { total: 11, games: 1 });
+  assert.deepEqual(agg.against.fg3, { total: 2, games: 1 });
+  assert.deepEqual(agg.against.fouls, { total: 16, games: 1 });
+  const wolves = opponentLine(computeBoxScore(fixture).teams[1]);
+  assert.equal(wolves.fouls, 16);
 
   const jamie = agg.rows.find((r) => r.name === 'Jamie Charles');
   assert.deepEqual([jamie.gp, jamie.pts, jamie.fg2, jamie.fg3, jamie.ftm, jamie.fouls], [2, 35, 6, 5, 8, 6]);
