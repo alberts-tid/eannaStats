@@ -280,8 +280,8 @@ function isTransient(err) {
 
 function describeError(err) {
   const msg = String(err?.message || err);
-  const code = String(err?.code || '');
-  const detail = ` (Detalle: ${msg})`;
+  const code = String(err?.code || err?.status || '');
+  const detail = ` (Detalle: ${msg}${code ? ` [${code}]` : ''})`;
   if (/api-not-enabled/.test(code) || /SERVICE_DISABLED|has not been used/i.test(msg)) {
     return `Firebase AI Logic no está activado en el proyecto. Actívalo en Firebase Console → AI Logic → Get started (Gemini Developer API).${detail}`;
   }
@@ -293,7 +293,7 @@ function describeError(err) {
   if (/not found|404/i.test(msg)) return `El modelo «${$('model').value.trim() || DEFAULT_MODEL}» no está disponible. Prueba otro en «Opciones».${detail}`;
   if (/401|invalid.*key|Unauthorized/i.test(msg)) return `La clave de OpenRouter no es válida.${detail}`;
   if (/high demand|overloaded|UNAVAILABLE|\[50[03]/i.test(msg)) return `El modelo está saturado ahora mismo. Espera un minuto y vuelve a intentarlo.${detail}`;
-  if (/rate-limited|quota|429|RESOURCE_EXHAUSTED/i.test(msg)) return `Se ha superado el cupo gratuito del modelo. Espera un poco y vuelve a intentarlo.${detail}`;
+  if (/rate-limited|quota|429|RESOURCE_EXHAUSTED/i.test(msg + code)) return `Se ha superado el cupo gratuito del modelo. Espera un poco y vuelve a intentarlo.${detail}`;
   if (/JSON/i.test(msg)) return `La IA ha devuelto una respuesta que no es JSON válido. Vuelve a intentarlo.${detail}`;
   return `Error al analizar: ${msg}`;
 }
