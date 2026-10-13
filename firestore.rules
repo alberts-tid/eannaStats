@@ -1,9 +1,10 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Actas analizadas: cualquier usuario autenticado las lee y crea; solo el autor o el admin las modifican.
+    // Lectura pública del partido y del acumulado. Crear, corregir y borrar exige sesión;
+    // modificar o borrar, además, ser el autor o el admin.
     match /acta_partits/{docId} {
-      allow read: if request.auth != null;
+      allow read: if true;
       allow create: if request.auth != null && request.resource.data.createdBy == request.auth.uid;
       allow update: if request.auth != null
         && request.resource.data.createdBy == resource.data.createdBy

@@ -8,9 +8,9 @@ export const COLLECTION = 'acta_partits';
 
 let db = null;
 
-export function initStore(app, { emulatorHost } = {}) {
+export function initStore(app, { emulatorHost, firestorePort = 8080 } = {}) {
   db = getFirestore(app);
-  if (emulatorHost) connectFirestoreEmulator(db, emulatorHost, 8080);
+  if (emulatorHost) connectFirestoreEmulator(db, emulatorHost, firestorePort);
   return db;
 }
 

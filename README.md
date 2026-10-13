@@ -11,7 +11,8 @@ Cada partido se guarda en Firestore y la web muestra las estadísticas por parti
 - La IA solo transcribe el acta (marcador acumulado con su dorsal, triples, faltas, finales de cuarto) en JSON con esquema.
 - El cálculo lo hace `boxscore.js` sin IA: cada anotación vale la diferencia con el marcador anterior (+1 tiro libre, +2 canasta, +3 triple).
 - Si algo no cuadra (saltos de +4, cuartos que no suman, dorsales que no están en la lista) aparece en «Revisa», y el marcador leído se puede corregir a mano.
-- Vistas: **Acta** (subir, revisar, guardar, descargar JPG/CSV), **Partidos** (lista por equipo) y **Acumulado** (totales y medias por jugador y puntos por partido).
+- Vistas públicas, sin sesión: **Partidos** (cada acta ya guardada, solo lectura) y **Acumulado**.
+- Vista privada, con sesión: **Acta** (subir, revisar, guardar y eliminar). Corregir o borrar un acta solo puede hacerlo quien la creó, o el admin.
 
 ## Ejecutar en local
 

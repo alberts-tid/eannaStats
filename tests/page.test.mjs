@@ -12,6 +12,17 @@ test('la foto va dentro del recuadro y solo hay el botón de analizar', () => {
   assert.doesNotMatch(html, /btn-demo|Probar con un ejemplo|Analizar con IA/);
 });
 
+test('subir y borrar actas queda tras el login; partidos y acumulado se ven sin sesión', () => {
+  assert.match(html, /id="tab-acta"[^>]*hidden/);
+  assert.match(html, /id="view-acta" class="view" hidden/);
+  assert.match(html, /id="view-games" class="view"/);
+  assert.doesNotMatch(html, /id="view-games" class="view" hidden/);
+  assert.match(html, /Eliminar acta/);
+  assert.match(html, /id="btn-delete-public"/);
+  assert.match(html, /id="public-game"/);
+  assert.match(html, /lectura pública/);
+});
+
 test('el marcador leído es una columna de running score', () => {
   assert.match(html, /Running score/);
   assert.match(html, /id="editor" class="running"/);

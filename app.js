@@ -25,6 +25,8 @@ const DETECT_WIDTH = 720;
 const params = new URLSearchParams(location.search);
 // ?emulator usa los emuladores locales de Firebase (Auth 9099, Firestore 8080) para pruebas.
 const emulatorHost = params.has('emulator') ? (params.get('emulator') || '127.0.0.1') : null;
+const firestorePort = Number(params.get('fs') || 8080);
+const authPort = Number(params.get('auth') || 9099);
 
 const app = initializeApp(firebaseConfig);
 if (appCheckSiteKey && !emulatorHost) {
@@ -37,8 +39,8 @@ if (appCheckSiteKey && !emulatorHost) {
   });
 }
 const auth = getAuth(app);
-if (emulatorHost) connectAuthEmulator(auth, `http://${emulatorHost}:9099`, { disableWarnings: true });
-initStore(app, { emulatorHost });
+if (emulatorHost) connectAuthEmulator(auth, `http://${emulatorHost}:${authPort}`, { disableWarnings: true });
+initStore(app, { emulatorHost, firestorePort });
 // AI Logic tiene la protección contra reutilización de App Check: solo acepta tokens de un solo uso.
 const ai = getAI(app, { backend: new GoogleAIBackend(), useLimitedUseAppCheckTokens: true });
 
@@ -53,8 +55,16 @@ const state = {
   games: [],
   gamesLoaded: false,
   teamKey: localStorage.getItem('acta.team') || '',
-  view: 'acta',
+  view: 'games',
+  readingId: null,
+  readTeam: 0,
 };
+
+const ADMIN_EMAIL = 'albertsinfreu@gmail.com';
+
+function canManage(game) {
+  return !!(state.user && game && (game.createdBy === state.user.uid || state.user.email === ADMIN_EMAIL));
+}
 
 function setStatus(msg, kind = 'info') {
   const el = $('status');
@@ -79,11 +89,10 @@ onAuthStateChanged(auth, (user) => {
   $('user-box').hidden = !user;
   $('user-email').textContent = user?.email || '';
   updateAnalyzeButton();
-  state.games = [];
-  state.gamesLoaded = false;
-  if (user) refreshGames();
-  else renderSaved();
+  updateZone();
   updateSaveButtons();
+  renderSaved();
+  refreshGames();
 });
 
 $('login-form').addEventListener('submit', async (ev) => {
@@ -330,8 +339,8 @@ function recompute() {
   renderResults();
 }
 
-function againstFoot(box) {
-  const other = box.teams.find((_, i) => i !== state.teamIndex);
+function againstFoot(box, teamIndex = state.teamIndex) {
+  const other = box.teams.find((_, i) => i !== teamIndex);
   const line = opponentLine(other);
   if (!line) return '';
   const num = (v) => (v === null || v === undefined ? '—' : v);
@@ -340,18 +349,42 @@ function againstFoot(box) {
   return `<tr class="against"><td></td><td>${esc(label)}</td>${[line.points, line.fg2, line.fg3, line.ftm, line.fouls, ...quarters].map((v) => `<td>${num(v)}</td>`).join('')}</tr>`;
 }
 
-function gameSubtitle(box) {
+function gameSubtitle(box, teamIndex = state.teamIndex) {
   const g = box.game || {};
-  const other = box.teams.find((_, i) => i !== state.teamIndex);
+  const other = box.teams.find((_, i) => i !== teamIndex);
   return [g.competition, g.venue, other?.name ? `vs ${other.name}` : '', g.date]
     .filter(Boolean).join(' · ');
 }
 
-function scoreLine(box) {
-  const t = box.teams[state.teamIndex];
-  const other = box.teams.find((_, i) => i !== state.teamIndex);
+function scoreLine(box, teamIndex = state.teamIndex) {
+  const t = box.teams[teamIndex];
+  const other = box.teams.find((_, i) => i !== teamIndex);
   if (!t) return '';
   return other ? `${t.finalScore} – ${other.finalScore}` : String(t.finalScore);
+}
+
+function boxTableHtml(box, teamIndex) {
+  const team = box.teams[teamIndex];
+  if (!team) return '';
+  if (!team.hasScoring) return '<p class="muted">No se ha leído ninguna anotación de este equipo en el marcador.</p>';
+  const head = ['#', 'Player', 'PTS', '2PM', '3PM', 'FTM', 'Fouls', ...QUARTER_LABELS];
+  const num = (v) => (v === null || v === undefined ? '—' : v);
+  const cls = (v) => (v === 0 ? 'zero' : '');
+  const body = team.rows.map((r) => `
+    <tr class="${r.onRoster ? '' : 'off'}">
+      <td><span class="chip">${esc(r.number)}</span></td>
+      <td class="name">${esc(playerLabel(r))}</td>
+      ${[r.pts, r.fg2, r.fg3, r.ftm, r.fouls, ...r.quarters].map((v, k) => `<td class="${cls(v)} ${k === 0 ? 'pts' : ''}">${num(v)}</td>`).join('')}
+    </tr>`).join('');
+  const t = team.totals;
+  const own = `<tr><td></td><td>TOTAL</td>${[t.pts, t.fg2, t.fg3, t.ftm, t.fouls, ...t.quarters].map((v) => `<td>${v}</td>`).join('')}</tr>`;
+  return `
+    <table class="box">
+      <thead><tr>${head.map((h, i) => `<th class="${i < 2 ? 'left' : ''}">${h}</th>`).join('')}</tr></thead>
+      <tbody>${body}</tbody>
+      <tfoot>${own}${againstFoot(box, teamIndex)}</tfoot>
+    </table>
+    <ul class="notes">${defaultNotes(team).map((n) => `<li>${esc(n)}</li>`).join('')}</ul>`;
 }
 
 function renderResults() {
@@ -372,31 +405,7 @@ function renderResults() {
   $('game-title').textContent = team.name || 'Equipo';
   $('game-sub').textContent = gameSubtitle(box);
   $('game-score').textContent = scoreLine(box);
-
-  if (!team.hasScoring) {
-    $('table-wrap').innerHTML = '<p class="muted">No se ha leído ninguna anotación de este equipo en el marcador.</p>';
-  } else {
-    const head = ['#', 'Player', 'PTS', '2PM', '3PM', 'FTM', 'Fouls', ...QUARTER_LABELS];
-    const num = (v) => (v === null || v === undefined ? '—' : v);
-    const cls = (v) => (v === 0 ? 'zero' : '');
-    const body = team.rows.map((r) => `
-      <tr class="${r.onRoster ? '' : 'off'}">
-        <td><span class="chip">${esc(r.number)}</span></td>
-        <td class="name">${esc(playerLabel(r))}</td>
-        ${[r.pts, r.fg2, r.fg3, r.ftm, r.fouls, ...r.quarters].map((v, k) => `<td class="${cls(v)} ${k === 0 ? 'pts' : ''}">${num(v)}</td>`).join('')}
-      </tr>`).join('');
-    const t = team.totals;
-    const own = `<tr><td></td><td>TOTAL</td>${[t.pts, t.fg2, t.fg3, t.ftm, t.fouls, ...t.quarters].map((v) => `<td>${v}</td>`).join('')}</tr>`;
-    const foot = own + againstFoot(box);
-    $('table-wrap').innerHTML = `
-      <table class="box">
-        <thead><tr>${head.map((h, i) => `<th class="${i < 2 ? 'left' : ''}">${h}</th>`).join('')}</tr></thead>
-        <tbody>${body}</tbody>
-        <tfoot>${foot}</tfoot>
-      </table>
-      <ul class="notes">${defaultNotes(team).map((n) => `<li>${esc(n)}</li>`).join('')}</ul>`;
-  }
-
+  $('table-wrap').innerHTML = boxTableHtml(box, state.teamIndex);
   renderEditor();
 }
 
@@ -504,16 +513,15 @@ $('btn-apply-json').addEventListener('click', () => {
   }
 });
 
-$('btn-jpg').addEventListener('click', async () => {
+async function downloadJpg(box, teamIndex) {
   await document.fonts.ready;
-  const box = state.box;
-  const team = box.teams[state.teamIndex];
+  const team = box.teams[teamIndex];
   const canvas = renderBoxScoreCanvas(team, {
     title: team.name,
-    subtitle: gameSubtitle(box),
-    score: scoreLine(box),
+    subtitle: gameSubtitle(box, teamIndex),
+    score: scoreLine(box, teamIndex),
     badge: 'FINAL',
-    against: opponentLine(box.teams.find((_, i) => i !== state.teamIndex)),
+    against: opponentLine(box.teams.find((_, i) => i !== teamIndex)),
   });
   canvas.toBlob((blob) => {
     const a = document.createElement('a');
@@ -522,15 +530,15 @@ $('btn-jpg').addEventListener('click', async () => {
     a.click();
     setTimeout(() => URL.revokeObjectURL(a.href), 2000);
   }, 'image/jpeg', 0.93);
-});
+}
 
-$('btn-csv').addEventListener('click', () => {
-  const team = state.box.teams[state.teamIndex];
+function downloadCsv(box, teamIndex) {
+  const team = box.teams[teamIndex];
   const header = ['Number', 'Player', 'PTS', '2PM', '3PM', 'FTM', 'Fouls', ...QUARTER_LABELS];
   const lines = [header, ...team.rows.map((r) => [r.number, playerLabel(r), r.pts, r.fg2, r.fg3, r.ftm, r.fouls ?? '', ...r.quarters])];
   const t = team.totals;
   lines.push(['', 'TOTAL', t.pts, t.fg2, t.fg3, t.ftm, t.fouls, ...t.quarters]);
-  const against = opponentLine(state.box.teams.find((_, i) => i !== state.teamIndex));
+  const against = opponentLine(box.teams.find((_, i) => i !== teamIndex));
   if (against) {
     const cell = (v) => (v === null || v === undefined ? '' : v);
     const quarters = against.quarters || [null, null, null, null];
@@ -541,7 +549,10 @@ $('btn-csv').addEventListener('click', () => {
   a.href = URL.createObjectURL(new Blob([csv], { type: 'text/csv' }));
   a.download = `${slugify(team.name)}-box-score.csv`;
   a.click();
-});
+}
+
+$('btn-jpg').addEventListener('click', () => downloadJpg(state.box, state.teamIndex));
+$('btn-csv').addEventListener('click', () => downloadCsv(state.box, state.teamIndex));
 
 // ---------- Partidos guardados ----------
 function setSaveStatus(msg, kind = 'info') {
@@ -572,8 +583,7 @@ function updateSaveButtons() {
   btn.disabled = !state.user || !state.extraction;
   btn.title = state.user ? '' : 'Inicia sesión para guardar';
   const game = savedGame();
-  const canDelete = state.user && game && (game.createdBy === state.user.uid || state.user.email === 'albertsinfreu@gmail.com');
-  $('btn-delete').hidden = !canDelete;
+  $('btn-delete').hidden = !canManage(game);
 }
 
 $('btn-save').addEventListener('click', async () => {
@@ -600,18 +610,24 @@ $('btn-save').addEventListener('click', async () => {
   }
 });
 
-$('btn-delete').addEventListener('click', async () => {
-  if (!state.currentId || !confirm('¿Eliminar este partido guardado? Dejará de contar en el acumulado.')) return;
+async function removeGame(id) {
+  const game = state.games.find((g) => g.id === id);
+  if (!canManage(game)) return;
+  if (!confirm('¿Eliminar este partido guardado? Dejará de contar en el acumulado.')) return;
   try {
-    await deleteGame(state.currentId);
-    resetToUpload();
+    await deleteGame(id);
+    if (state.currentId === id) resetToUpload();
+    if (state.readingId === id) state.readingId = null;
     await refreshGames();
     setView('games');
   } catch (err) {
     console.error(err);
     setSaveStatus(`No se ha podido eliminar: ${err.message || err}`, 'error');
   }
-});
+}
+
+$('btn-delete').addEventListener('click', () => removeGame(state.currentId));
+$('btn-delete-public').addEventListener('click', () => removeGame(state.readingId));
 
 function resetToUpload() {
   state.extraction = null;
@@ -628,12 +644,31 @@ $('btn-new').addEventListener('click', () => {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 });
 
-function openGame(id) {
+function showGame(id) {
   const game = state.games.find((g) => g.id === id);
-  if (!game) return;
+  if (!game?.extraction) return;
+  state.readingId = id;
+  const box = computeBoxScore(game.extraction);
+  const teams = listTeams(state.games);
+  const key = teams.some((t) => t.key === state.teamKey) ? state.teamKey : (teams[0]?.key || '');
+  const preferred = box.teams.findIndex((t) => teamKey(t.name) === key);
+  state.readTeam = preferred >= 0 ? preferred : 0;
+  setView('games');
+  $('public-game').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function editGame(id) {
+  const game = state.games.find((g) => g.id === id);
+  if (!game || !canManage(game)) return;
   setExtraction(structuredClone(game.extraction), { savedId: id });
   setView('acta');
   window.scrollTo({ top: 0 });
+}
+
+function updateZone() {
+  const openPrivate = !!state.user || params.has('demo');
+  $('tab-acta').hidden = !openPrivate;
+  if (!openPrivate && state.view === 'acta') setView('games');
 }
 
 // ---------- Vistas ----------
@@ -648,12 +683,17 @@ document.querySelectorAll('.view-tab').forEach((b) => b.addEventListener('click'
 function setTeam(key) {
   state.teamKey = key;
   localStorage.setItem('acta.team', key);
+  const game = readingGame();
+  if (game?.extraction) {
+    const box = computeBoxScore(game.extraction);
+    const preferred = box.teams.findIndex((t) => teamKey(t.name) === key);
+    if (preferred >= 0) state.readTeam = preferred;
+  }
   renderSaved();
 }
 document.querySelectorAll('.team-select').forEach((sel) => sel.addEventListener('change', () => setTeam(sel.value)));
 
 async function refreshGames() {
-  if (!state.user) return;
   $('games-status').textContent = 'Cargando partidos…';
   try {
     state.games = await listGames();
@@ -662,7 +702,7 @@ async function refreshGames() {
   } catch (err) {
     console.error(err);
     $('games-status').textContent = /permission/i.test(String(err?.code || err?.message))
-      ? 'Firestore ha denegado la lectura. ¿Están desplegadas las reglas de acta_partits?'
+      ? 'Los partidos no se pueden leer. Publica firestore.rules para abrir la lectura.'
       : `No se han podido cargar los partidos: ${err.message || err}`;
   }
   renderSaved();
@@ -671,10 +711,57 @@ async function refreshGames() {
 
 const fmt1 = (v) => (Number.isFinite(v) ? (Math.round(v * 10) / 10).toFixed(1) : '—');
 
+function readingGame() {
+  return state.games.find((g) => g.id === state.readingId) || null;
+}
+
+function renderPublicDetail() {
+  const host = $('public-game');
+  const game = readingGame();
+  if (!game?.extraction) {
+    host.hidden = true;
+    return;
+  }
+  host.hidden = false;
+  const box = computeBoxScore(game.extraction);
+  state.readTeam = Math.max(0, Math.min(state.readTeam, box.teams.length - 1));
+  const team = box.teams[state.readTeam];
+  $('public-tabs').innerHTML = box.teams.map((t, n) => `
+    <button type="button" class="tab ${n === state.readTeam ? 'active' : ''}" data-i="${n}">
+      ${esc(t.name || `Equipo ${t.side || n + 1}`)} <span>${t.finalScore}</span>
+    </button>`).join('');
+  $('public-tabs').querySelectorAll('button').forEach((b) => b.addEventListener('click', () => {
+    state.readTeam = +b.dataset.i;
+    renderPublicDetail();
+  }));
+  $('public-name').textContent = team?.name || 'Equipo';
+  $('public-sub').textContent = gameSubtitle(box, state.readTeam);
+  $('public-score').textContent = scoreLine(box, state.readTeam);
+  $('public-table').innerHTML = boxTableHtml(box, state.readTeam);
+  const manage = canManage(game);
+  $('btn-edit-game').hidden = !manage;
+  $('btn-delete-public').hidden = !manage;
+}
+
+$('btn-close-game').addEventListener('click', () => {
+  state.readingId = null;
+  renderPublicDetail();
+});
+$('btn-edit-game').addEventListener('click', () => editGame(state.readingId));
+$('btn-public-jpg').addEventListener('click', () => {
+  const game = readingGame();
+  if (game?.extraction) downloadJpg(computeBoxScore(game.extraction), state.readTeam);
+});
+$('btn-public-csv').addEventListener('click', () => {
+  const game = readingGame();
+  if (game?.extraction) downloadCsv(computeBoxScore(game.extraction), state.readTeam);
+});
+
 function renderSaved() {
   $('games-count').textContent = state.games.length ? String(state.games.length) : '';
   const teams = listTeams(state.games);
   const key = teams.some((t) => t.key === state.teamKey) ? state.teamKey : (teams[0]?.key || '');
+  if (key) state.teamKey = key;
   document.querySelectorAll('.team-select').forEach((sel) => {
     sel.innerHTML = teams.length
       ? teams.map((t) => `<option value="${esc(t.key)}" ${t.key === key ? 'selected' : ''}>${esc(t.name)} (${t.games})</option>`).join('')
@@ -682,28 +769,25 @@ function renderSaved() {
     sel.disabled = !teams.length;
   });
 
-  if (!state.user) {
-    const msg = '<p class="muted">Inicia sesión para ver los partidos guardados.</p>';
-    $('games-list').innerHTML = msg;
-    $('totals-summary').innerHTML = '';
-    $('totals-against').innerHTML = '';
-    $('totals-table').innerHTML = msg;
-    $('totals-matrix').innerHTML = '';
-    return;
-  }
   if (!state.games.length) {
-    const msg = state.gamesLoaded ? '<p class="muted">Todavía no hay partidos guardados. Analiza un acta y pulsa «Guardar partido».</p>' : '';
+    const msg = state.gamesLoaded
+      ? (state.user
+        ? '<p class="muted">Todavía no hay partidos guardados. En «Acta» puedes analizar una y guardarla.</p>'
+        : '<p class="muted">Todavía no hay partidos guardados.</p>')
+      : '';
     $('games-list').innerHTML = msg;
     $('totals-summary').innerHTML = '';
     $('totals-against').innerHTML = '';
     $('totals-table').innerHTML = msg;
     $('totals-matrix').innerHTML = '';
+    renderPublicDetail();
     return;
   }
 
   const agg = aggregateTeam(state.games, key);
   renderGamesList(agg);
   renderTotals(agg);
+  renderPublicDetail();
 }
 
 function resultBadge(m) {
@@ -714,8 +798,13 @@ function resultBadge(m) {
 }
 
 function renderGamesList(agg) {
+  const manageable = state.games.some((g) => canManage(g));
   const rows = [...agg.matches].reverse().map((m) => {
     const top = m.team.hasScoring ? m.team.rows[0] : null;
+    const game = state.games.find((g) => g.id === m.id);
+    const actions = canManage(game)
+      ? `<td class="row-actions"><button type="button" class="btn ghost small" data-edit="${esc(m.id)}">Editar</button><button type="button" class="btn danger small" data-del="${esc(m.id)}">Eliminar</button></td>`
+      : (manageable ? '<td></td>' : '');
     return `
       <tr class="clickable" data-id="${esc(m.id)}">
         <td>${esc(m.dateLabel || '—')}</td>
@@ -723,14 +812,24 @@ function renderGamesList(agg) {
         <td>${resultBadge(m)} <b>${m.pointsFor}</b> – ${m.pointsAgainst ?? '—'}</td>
         <td>${esc(m.competition)}</td>
         <td>${top ? `${esc(playerLabel(top))} (${top.pts})` : '<span class="muted">solo resultado</span>'}</td>
+        ${actions}
       </tr>`;
   }).join('');
+  const actionHead = manageable ? '<th></th>' : '';
   $('games-list').innerHTML = `
     <table class="list">
-      <thead><tr><th>Fecha</th><th>Rival</th><th>Resultado</th><th>Competición</th><th>Máximo anotador</th></tr></thead>
+      <thead><tr><th>Fecha</th><th>Rival</th><th>Resultado</th><th>Competición</th><th>Máximo anotador</th>${actionHead}</tr></thead>
       <tbody>${rows}</tbody>
     </table>`;
-  $('games-list').querySelectorAll('tr[data-id]').forEach((tr) => tr.addEventListener('click', () => openGame(tr.dataset.id)));
+  $('games-list').querySelectorAll('tr[data-id]').forEach((tr) => tr.addEventListener('click', () => showGame(tr.dataset.id)));
+  $('games-list').querySelectorAll('[data-edit]').forEach((b) => b.addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    editGame(b.dataset.edit);
+  }));
+  $('games-list').querySelectorAll('[data-del]').forEach((b) => b.addEventListener('click', (ev) => {
+    ev.stopPropagation();
+    removeGame(b.dataset.del);
+  }));
 }
 
 function againstStat(label, stat, n) {
@@ -829,7 +928,12 @@ function renderTotals(agg) {
     <p class="muted small">«·» = no jugó ese partido.</p>`;
 }
 
-if (params.has('demo')) loadDemo();
 updateAnalyzeButton();
 updateSaveButtons();
-renderSaved();
+if (params.has('demo')) {
+  $('tab-acta').hidden = false;
+  setView('acta');
+  loadDemo();
+} else {
+  renderSaved();
+}
