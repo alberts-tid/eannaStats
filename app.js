@@ -415,22 +415,54 @@ function mentionsToken(text, token) {
   return new RegExp(`(?<!\\d)${safe}(?!\\d)`).test(String(text));
 }
 
+function findScoring(team, total) {
+  const scoring = team?.scoring || [];
+  const index = scoring.findIndex((e) => parseInt(e.total, 10) === total);
+  return index < 0 ? null : { entry: scoring[index], index };
+}
+
+function ensureScoring(team, total) {
+  team.scoring = team.scoring || [];
+  const found = findScoring(team, total);
+  if (found) return found.entry;
+  const entry = { total, jersey: '', threePointer: false, freeThrow: false };
+  team.scoring.push(entry);
+  return entry;
+}
+
 function renderEditor() {
-  const team = state.extraction.teams?.[state.teamIndex];
-  const boxTeam = state.box.teams[state.teamIndex];
-  const plays = boxTeam.plays.map((p) => ({ ...p, doubts: [...(p.doubts || [])] }));
-  const byIdx = new Map(plays.map((p) => [p.idx, p]));
-  const notes = state.extraction.notes || [];
+  const teams = state.extraction?.teams || [];
+  const boxes = state.box?.teams || [];
+  const playByTotal = boxes.map((boxTeam) => {
+    const map = new Map();
+    for (const play of boxTeam?.plays || []) {
+      const copy = { ...play, doubts: [...(play.doubts || [])] };
+      const prev = map.get(play.total);
+      if (!prev || prev.kind === 'SKIP') map.set(play.total, copy);
+    }
+    return map;
+  });
+  const notes = state.extraction?.notes || [];
   const leftoverNotes = [];
+  const allPlays = playByTotal.flatMap((map) => [...map.values()]);
   for (const note of notes) {
-    const hit = plays.find((p) => mentionsToken(note, p.total) || (p.jersey && p.jersey !== '?' && mentionsToken(note, p.jersey)));
+    const hit = allPlays.find((p) => mentionsToken(note, p.total) || (p.jersey && p.jersey !== '?' && mentionsToken(note, p.jersey)));
     if (hit) hit.doubts.push(`IA: ${note}`);
     else leftoverNotes.push(`IA: ${note}`);
   }
-  const used = new Set(plays.flatMap((p) => p.doubts));
-  const general = [...boxTeam.warnings.filter((w) => !used.has(w)), ...leftoverNotes];
-  const rows = (team?.scoring || []).map((e, idx) => ({ e, idx, play: byIdx.get(idx) }))
-    .sort((a, b) => (+a.e.total || 0) - (+b.e.total || 0) || a.idx - b.idx);
+  const used = new Set(allPlays.flatMap((p) => p.doubts));
+  const general = [
+    ...boxes.flatMap((boxTeam) => (boxTeam?.warnings || []).filter((w) => !used.has(w))),
+    ...leftoverNotes,
+  ];
+  const totals = new Set();
+  for (const team of teams) {
+    for (const e of team.scoring || []) {
+      const n = parseInt(e.total, 10);
+      if (n > 0) totals.add(n);
+    }
+  }
+  const sorted = [...totals].sort((a, b) => a - b);
   const kindLabel = (play) => {
     if (!play) return '';
     if (play.kind === 'SKIP') return '—';
@@ -439,54 +471,126 @@ function renderEditor() {
     if (play.kind === '2PT') return '+2';
     return '+3';
   };
-  const quarterMark = (play) => {
+  const quarterMark = (play, boxTeam) => {
     if (!play || play.kind === 'SKIP' || play.quarter == null) return '';
-    const end = boxTeam.quarterEnds?.[play.quarter];
+    const end = boxTeam?.quarterEnds?.[play.quarter];
     return end === play.total && Number.isFinite(end) ? QUARTER_LABELS[play.quarter] : '';
   };
-  const photo = runningPhoto(team);
-  $('editor').classList.toggle('has-photo', !!photo);
-  const body = rows.map(({ e, idx, play }) => {
-    const doubts = play?.doubts || [];
-    const end = quarterMark(play);
+  const richer = [...teams].sort((a, b) => (b.scoring?.length || 0) - (a.scoring?.length || 0))[0];
+  const photo = runningPhoto(richer);
+  // El acta se lee de izquierda a derecha: dorsal A, total A, total B, dorsal B.
+  const placed = teams.map((team, i) => ({ team, i, box: boxes[i], plays: playByTotal[i] }));
+  placed.sort((a, b) => (a.team.side === 'B') - (b.team.side === 'B'));
+  const editor = $('editor');
+  editor.classList.toggle('has-photo', !!photo);
+  const widths = (pos) => (pos === 0 ? ['58px', '56px', '78px'] : ['56px', '58px', '78px']);
+  const sideCols = placed.flatMap((_, pos) => widths(pos)).join(' ');
+  editor.style.setProperty('--run-cols', `${photo ? '280px ' : ''}${sideCols} minmax(140px, 1fr)`);
+  const totalField = (entry, i, name, split) => `
+      <input type="number" class="run-total${split ? ' run-split' : ''}" data-team="${i}" value="${entry ? esc(entry.total) : ''}" min="1" aria-label="Marcador de ${esc(name)}">`;
+  const jerseyField = (entry, i, name) => `
+      <div class="run-player ${entry?.threePointer ? 'circled' : ''}">
+        <input type="text" class="run-jersey" data-team="${i}" value="${esc(entry?.jersey || '')}" aria-label="Dorsal de ${esc(name)}" inputmode="numeric">
+        <button type="button" class="run-three" data-team="${i}" aria-pressed="${entry?.threePointer ? 'true' : 'false'}" aria-label="Dorsal rodeado: triple" title="Dorsal rodeado: triple"></button>
+      </div>`;
+  const sideCells = (total) => placed.map(({ team, i, box, plays }, pos) => {
+    const found = findScoring(team, total);
+    const entry = found?.entry;
+    const play = plays?.get(total);
+    const end = quarterMark(play, box);
+    const name = team.name || `Equipo ${i + 1}`;
+    const del = entry
+      ? `<button type="button" class="run-del" data-team="${i}" title="Quitar la anotación de ${esc(name)}">×</button>`
+      : '';
+    const kind = `<span class="run-kind">${esc(kindLabel(play))}${end ? ` · ${end}` : ''}${del}</span>`;
+    const jersey = jerseyField(entry, i, name);
+    const score = totalField(entry, i, name, pos > 0);
+    return pos === 0 ? `${jersey}${score}${kind}` : `${score}${jersey}${kind}`;
+  }).join('');
+  const body = sorted.map((total) => {
+    const doubts = placed.flatMap(({ team, plays }) => (plays?.get(total)?.doubts || []).map((d) => `${team.name || 'Equipo'}: ${d}`));
+    const bad = placed.some(({ plays }) => {
+      const play = plays?.get(total);
+      return play && (play.doubts.length || play.kind === 'OTHER' || play.kind === 'SKIP');
+    });
+    const ended = placed.some(({ plays, box }) => quarterMark(plays?.get(total), box));
     return `
-    <div class="run ${doubts.length || play?.kind === 'OTHER' || play?.kind === 'SKIP' ? 'bad' : ''} ${end ? 'end' : ''}" data-idx="${idx}">
-      ${photo ? `<canvas class="run-photo" aria-label="Línea del acta del marcador ${esc(e.total)}"></canvas>` : ''}
-      <input type="number" class="run-total" value="${esc(e.total)}" min="1" aria-label="Marcador acumulado">
-      <div class="run-player ${e.threePointer ? 'circled' : ''}">
-        <input type="text" class="run-jersey" value="${esc(e.jersey)}" aria-label="Dorsal" inputmode="numeric">
-        <button type="button" class="run-three" aria-pressed="${e.threePointer ? 'true' : 'false'}" aria-label="Dorsal rodeado: triple" title="Dorsal rodeado: triple"></button>
-      </div>
-      <span class="run-kind">${esc(kindLabel(play))}${end ? ` · ${end}` : ''}</span>
+    <div class="run ${bad ? 'bad' : ''} ${ended ? 'end' : ''}" data-total="${total}">
+      ${photo ? `<canvas class="run-photo" aria-label="Línea del acta del marcador ${total}"></canvas>` : ''}
+      ${sideCells(total)}
       <p class="run-doubt">${doubts.map((d) => esc(d)).join(' ')}</p>
-      <button type="button" class="run-del" title="Eliminar anotación">×</button>
     </div>`;
   }).join('');
+  const names = placed.map(({ team }) => `<span class="run-team" style="grid-column: span 3">${esc(team.name || 'Equipo')}</span>`).join('');
+  const labels = placed.map((_, pos) => (
+    pos === 0
+      ? '<span>Nº</span><span>Total</span><span></span>'
+      : '<span>Total</span><span>Nº</span><span></span>'
+  )).join('');
+  const photoHead = photo ? '<span></span>' : '';
+  const photoLabel = photo ? '<span>Acta</span>' : '';
   const extra = general.length
     ? `<ul class="running-extra">${general.map((w) => `<li>${esc(w)}</li>`).join('')}</ul>`
     : '';
-  const head = photo
-    ? '<span>Acta</span><span>Total</span><span>Nº</span><span></span><span>Duda</span><span></span>'
-    : '<span>Total</span><span>Nº</span><span></span><span>Duda</span><span></span>';
-  $('editor').innerHTML = `
-    <div class="running-title">Running score · ${esc(team?.name || 'Equipo')}</div>
-    <div class="run run-head">${head}</div>
+  const title = placed.map(({ team }) => team.name).filter(Boolean).join(' · ');
+  editor.innerHTML = `
+    <div class="running-title">Running score · ${esc(title || 'Equipos')}</div>
+    <div class="run run-head">${photoHead}${names}<span></span></div>
+    <div class="run run-head">${photoLabel}${labels}<span>Duda</span></div>
     ${body || '<p class="muted" style="padding:12px">Sin anotaciones.</p>'}
     ${extra}`;
 
-  $('editor').querySelectorAll('.run[data-idx]').forEach((row) => {
-    const entry = team.scoring[+row.dataset.idx];
+  editor.querySelectorAll('.run[data-total]').forEach((row) => {
+    const total = parseInt(row.dataset.total, 10);
     if (photo) {
-      const box = lineBox(photo.grid, entry.total);
+      const box = lineBox(photo.grid, total);
       const canvas = row.querySelector('.run-photo');
       if (canvas && box) paintSheetLine(canvas, photo.canvas, box);
     }
-    row.querySelector('.run-total').addEventListener('change', (ev) => { entry.total = parseInt(ev.target.value, 10); syncJson(); });
-    const jersey = row.querySelector('.run-jersey');
-    jersey.addEventListener('click', (ev) => ev.stopPropagation());
-    jersey.addEventListener('change', (ev) => { entry.jersey = ev.target.value.trim(); syncJson(); });
-    row.querySelector('.run-three').addEventListener('click', () => { entry.threePointer = !entry.threePointer; syncJson(); });
-    row.querySelector('.run-del').addEventListener('click', () => { team.scoring.splice(+row.dataset.idx, 1); syncJson(); });
+    row.querySelectorAll('.run-total').forEach((input) => {
+      input.addEventListener('change', () => {
+        const team = teams[+input.dataset.team];
+        const next = parseInt(input.value, 10);
+        if (!team || !Number.isFinite(next) || next <= 0) return;
+        const found = findScoring(team, total);
+        if (found) found.entry.total = next;
+        else team.scoring = [...(team.scoring || []), { total: next, jersey: '', threePointer: false, freeThrow: false }];
+        syncJson();
+      });
+    });
+    row.querySelectorAll('.run-jersey').forEach((input) => {
+      input.addEventListener('click', (ev) => ev.stopPropagation());
+      input.addEventListener('change', () => {
+        const team = teams[+input.dataset.team];
+        if (!team) return;
+        const value = input.value.trim();
+        const found = findScoring(team, total);
+        if (!value) {
+          if (found) team.scoring.splice(found.index, 1);
+        } else if (found) found.entry.jersey = value;
+        else ensureScoring(team, total).jersey = value;
+        syncJson();
+      });
+    });
+    row.querySelectorAll('.run-three').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const team = teams[+btn.dataset.team];
+        if (!team) return;
+        const entry = ensureScoring(team, total);
+        const jersey = row.querySelector(`.run-jersey[data-team="${btn.dataset.team}"]`);
+        if (!entry.jersey && jersey) entry.jersey = jersey.value.trim();
+        entry.threePointer = !entry.threePointer;
+        syncJson();
+      });
+    });
+    row.querySelectorAll('.run-del').forEach((btn) => {
+      btn.addEventListener('click', () => {
+        const team = teams[+btn.dataset.team];
+        const found = team && findScoring(team, total);
+        if (found) team.scoring.splice(found.index, 1);
+        syncJson();
+      });
+    });
   });
 }
 
@@ -496,11 +600,11 @@ function syncJson() {
 }
 
 $('btn-add-event').addEventListener('click', () => {
-  const team = state.extraction?.teams?.[state.teamIndex];
-  if (!team) return;
-  team.scoring = team.scoring || [];
-  const last = team.scoring.reduce((m, e) => Math.max(m, +e.total || 0), 0);
-  team.scoring.push({ total: last + 2, jersey: '', threePointer: false });
+  const teams = state.extraction?.teams || [];
+  const home = teams.find((team) => team.side !== 'B') || teams[0];
+  if (!home) return;
+  const last = teams.reduce((max, team) => Math.max(max, ...(team.scoring || []).map((e) => +e.total || 0), 0), 0);
+  ensureScoring(home, last + 2);
   syncJson();
 });
 

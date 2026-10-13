@@ -108,20 +108,22 @@ table.box tfoot td:nth-child(2) { text-align: left; }
 tr.off .chip { background: #F6E3C1; }
 .notes { color: var(--muted); font-size: 13px; padding-left: 18px; }
 
-.running { margin: 12px 0; border: 1px solid #D9D3C5; background: #FFFEFB; border-radius: 4px; overflow: hidden; }
+.running { margin: 12px 0; border: 1px solid #D9D3C5; background: #FFFEFB; border-radius: 4px; overflow-x: auto; }
 .running-title { padding: 8px 12px; font-size: 12px; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); border-bottom: 1px solid #E7E2D6; }
 .run {
-  display: grid; grid-template-columns: 64px 72px 88px minmax(160px, 1fr) 28px;
+  display: grid; grid-template-columns: var(--run-cols, 64px 72px 88px minmax(160px, 1fr) 28px);
   gap: 8px; align-items: center; padding: 3px 10px; border-bottom: 1px solid #E7E2D6; min-height: 36px;
 }
 .run-head { min-height: 0; padding-top: 6px; padding-bottom: 6px; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; color: var(--muted); }
+.run-head > span:not(.run-team) { text-align: center; }
+.run-team { text-align: left; color: var(--ink); }
 .run.end { border-bottom: 3px solid var(--ink); }
 .run.bad { background: #FFF8EC; }
 .run-total, .run-jersey {
   font: inherit; font-variant-numeric: tabular-nums; font-weight: 700; color: var(--ink);
   background: transparent; border: 0; border-bottom: 1px solid transparent; padding: 4px 2px; text-align: right;
 }
-.run-total { font-family: "Courier New", ui-monospace, monospace; width: 100%; }
+.run-total { font-family: "Courier New", ui-monospace, monospace; width: 100%; text-align: center; }
 .run-total::-webkit-outer-spin-button, .run-total::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
 .run-total { -moz-appearance: textfield; appearance: textfield; }
 .run-player { position: relative; width: 54px; height: 34px; }
@@ -137,10 +139,10 @@ tr.off .chip { background: #F6E3C1; }
 .run-kind { font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; white-space: nowrap; }
 .run-doubt { margin: 0; font-size: 12px; line-height: 1.35; color: #7A4E00; background: #FFF3D6; border-radius: 8px; padding: 4px 8px; }
 .run-doubt:empty { background: transparent; padding: 0; }
-.run-del { border: 0; background: transparent; cursor: pointer; font-size: 18px; color: var(--muted); padding: 0; }
-.running.has-photo .run { grid-template-columns: auto 64px 72px 88px minmax(160px, 1fr) 28px; }
+.run-del { border: 0; background: transparent; cursor: pointer; font-size: 16px; line-height: 1; color: var(--muted); padding: 0 0 0 8px; vertical-align: middle; }
+.run-split { box-shadow: -10px 0 0 -9px #C9C3B6; }
 .run-photo {
-  display: block; height: 48px; width: auto; max-width: 280px;
+  display: block; height: 48px; width: auto; max-width: 100%;
   background: #F4F1EA; border-radius: 2px;
 }
 .running-extra { margin: 0; padding: 10px 12px 12px; background: #FFF7E6; color: #7A4E00; font-size: 13px; }
@@ -150,17 +152,17 @@ tr.off .chip { background: #F6E3C1; }
   .game-head { flex-direction: column; align-items: flex-start; gap: 6px; }
   .game-score { font-size: 28px; }
   .login input { width: 100%; }
-  .run { grid-template-columns: 52px 86px 44px 28px; }
-  .running.has-photo .run { grid-template-columns: 52px 86px 44px 28px; }
+  .run {
+    gap: 4px; padding: 4px 6px;
+    grid-template-columns: 40px 36px minmax(32px, 1fr) 36px 40px minmax(32px, 1fr) !important;
+  }
   .run-head { display: none; }
-  .run-kind { grid-column: 3; grid-row: 1; }
-  .run-del { grid-column: 4; grid-row: 1; }
-  .run-doubt { grid-column: 1 / -1; grid-row: 2; }
+  .run-player { width: 40px; height: 30px; }
+  .run-jersey { width: 28px; height: 24px; margin: 3px auto; }
+  .run-kind { font-size: 11px; }
+  .run-photo { grid-column: 1 / -1; max-width: 100%; height: 44px; justify-self: center; }
+  .run-doubt { grid-column: 1 / -1; }
   .run-doubt:empty { display: none; }
-  .running.has-photo .run-photo { grid-column: 1 / -1; grid-row: 1; max-width: 100%; height: 56px; }
-  .running.has-photo .run-kind { grid-column: 3; grid-row: 2; }
-  .running.has-photo .run-del { grid-column: 4; grid-row: 2; }
-  .running.has-photo .run-doubt { grid-row: 3; }
 }
 
 .views-nav { display: flex; gap: 6px; margin-top: 16px; }
