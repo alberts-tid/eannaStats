@@ -7,7 +7,7 @@ Cada partido se guarda en Firestore y la web muestra las estadísticas por parti
 
 ## Cómo funciona
 
-- Proveedor **Gemini** (Firebase AI Logic, hace falta iniciar sesión) o **Gemma** (`google/gemma-4-31b-it:free` en OpenRouter). La clave de OpenRouter se guarda solo en el navegador.
+- La IA es Gemini, a través de Firebase AI Logic. Hace falta iniciar sesión.
 - La IA solo transcribe el acta (marcador acumulado con su dorsal, triples, faltas, finales de cuarto) en JSON con esquema.
 - El cálculo lo hace `boxscore.js` sin IA: cada anotación vale la diferencia con el marcador anterior (+1 tiro libre, +2 canasta, +3 triple).
 - Si algo no cuadra (saltos de +4, cuartos que no suman, dorsales que no están en la lista) aparece en «Revisa», y el marcador leído se puede corregir a mano.
