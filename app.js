@@ -9,7 +9,7 @@ import {
   getAI, getGenerativeModel, GoogleAIBackend, Schema, ThinkingLevel,
 } from 'https://www.gstatic.com/firebasejs/13.0.0/firebase-ai.js';
 import {
-  computeBoxScore, aggregateTeam, teamKey, findEannaKey, opponentLine, QUARTER_LABELS,
+  computeBoxScore, aggregateTeam, teamKey, teamMatches, findEannaKey, opponentLine, QUARTER_LABELS,
 } from './boxscore.js';
 import { initStore, listGames, saveGame, deleteGame } from './store.js';
 import { EXTRACTION_PROMPT, buildResponseSchema } from './prompt.js';
@@ -323,7 +323,7 @@ function setExtraction(extraction, { savedId = null } = {}) {
   state.extraction = extraction;
   state.currentId = savedId;
   const teams = extraction.teams || [];
-  const selected = teams.findIndex((t) => state.teamKey && teamKey(t.name) === state.teamKey);
+  const selected = teams.findIndex((t) => state.teamKey && teamMatches(t.name, state.teamKey));
   const firstWithScoring = teams.findIndex((t) => (t.scoring || []).length);
   state.teamIndex = Math.max(0, selected >= 0 ? selected : firstWithScoring);
   $('save-status').hidden = true;
@@ -722,7 +722,7 @@ $('btn-new').addEventListener('click', () => {
 
 function eannaIndex(box) {
   const key = findEannaKey([{ extraction: { teams: box.teams || [] } }]);
-  const idx = (box.teams || []).findIndex((t) => teamKey(t.name) === key);
+  const idx = (box.teams || []).findIndex((t) => teamMatches(t.name, key));
   return idx >= 0 ? idx : 0;
 }
 

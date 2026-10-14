@@ -281,13 +281,31 @@ function sumFavor(matches, field) {
   return { total: known.reduce((a, m) => a + (m.team.totals[field] || 0), 0), games: known.length };
 }
 
+/**
+ * Éanna, con cualquier grafía del acta: «Éanna BC», «EANNA», «EannaBC» o «Coláiste Éanna».
+ * El nombre ya llega normalizado (sin acentos, en minúsculas).
+ */
+export function isEannaName(name) {
+  const k = teamKey(name);
+  if (!k) return false;
+  if (k === 'eanna' || k.startsWith('eanna')) return true;
+  return k.endsWith(' eanna') || k.includes(' eanna ');
+}
+
+/** El portal pide una clave normalizada. Todas las grafías de Éanna cuentan como el mismo club. */
+export function teamMatches(name, key) {
+  if (!key) return false;
+  if (teamKey(name) === key) return true;
+  return isEannaName(key) && isEannaName(name);
+}
+
 /** El acumulado del portal es siempre el de Éanna, esté escrita como «Éanna BC» o «EANNA». */
 export function findEannaKey(games) {
   const keys = [];
   for (const g of games || []) {
     for (const t of g.extraction?.teams || []) {
       const k = teamKey(t.name);
-      if ((k === 'eanna' || k.startsWith('eanna ')) && !keys.includes(k)) keys.push(k);
+      if (isEannaName(k) && !keys.includes(k)) keys.push(k);
     }
   }
   return keys.find((k) => k === 'eanna bc') || keys[0] || 'eanna bc';
@@ -316,7 +334,7 @@ export function aggregateTeam(games, key) {
   const matches = [];
   for (const g of games) {
     const box = computeBoxScore(g.extraction);
-    const idx = box.teams.findIndex((t) => teamKey(t.name) === key);
+    const idx = box.teams.findIndex((t) => teamMatches(t.name, key));
     if (idx < 0) continue;
     const team = box.teams[idx];
     const opp = box.teams.find((_, i) => i !== idx);

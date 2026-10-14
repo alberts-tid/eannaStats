@@ -2,7 +2,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
 import {
-  computeBoxScore, computeTeamBoxScore, aggregateTeam, listTeams, teamKey, findEannaKey, opponentLine, parseGameDate,
+  computeBoxScore, computeTeamBoxScore, aggregateTeam, listTeams, teamKey, isEannaName, findEannaKey, opponentLine, parseGameDate,
 } from '../boxscore.js';
 
 const fixture = JSON.parse(readFileSync(new URL('../fixtures/eanna-drogheda.json', import.meta.url), 'utf8'));
@@ -222,6 +222,61 @@ test('los cuartos en contra salen de la casilla de resultados si no hay marcador
   assert.equal(agg.matches[0].against.fouls, null);
   assert.equal(agg.matches[0].foulsFor, 1);
   assert.deepEqual(agg.matches[0].quartersFor, [2, 0, 0, 0]);
+});
+
+test('un segundo partido con otra grafía de Éanna entra en el listado y el acumulado', () => {
+  const plain = {
+    game: { date: '3/10/26', competition: 'League' },
+    teams: [
+      { side: 'A', name: 'Templeogue', players: [], scoring: [], finalScore: 40 },
+      {
+        side: 'B',
+        name: 'EANNA',
+        players: [{ number: '6', name: 'Jamie Charles', fouls: 1, played: true }],
+        scoring: [{ total: 2, jersey: '6' }],
+        quarterEndTotals: [2],
+        finalScore: 55,
+      },
+    ],
+  };
+  const school = {
+    game: { date: '10/10/26' },
+    teams: [
+      { name: 'Coláiste Éanna', players: [], scoring: [], finalScore: 60 },
+      { name: 'Other Club', players: [], scoring: [], finalScore: 50 },
+    ],
+  };
+  const glued = {
+    game: { date: '17/10/26' },
+    teams: [
+      { name: 'EannaBC', players: [], scoring: [], finalScore: 70 },
+      { name: 'Drogheda Wolves', players: [], scoring: [], finalScore: 30 },
+    ],
+  };
+  const games = [
+    { id: 'bc', extraction: fixture },
+    { id: 'plain', extraction: plain },
+    { id: 'school', extraction: school },
+    { id: 'glued', extraction: glued },
+  ];
+  assert.equal(isEannaName('Éanna BC'), true);
+  assert.equal(isEannaName('EANNA'), true);
+  assert.equal(isEannaName('Coláiste Éanna'), true);
+  assert.equal(isEannaName('EannaBC'), true);
+  assert.equal(isEannaName('Drogheda Wolves'), false);
+  assert.equal(findEannaKey(games), 'eanna bc');
+  const agg = aggregateTeam(games, findEannaKey(games));
+  assert.deepEqual(agg.matches.map((m) => m.id), ['bc', 'plain', 'school', 'glued']);
+  assert.equal(agg.matches[1].opponent, 'Templeogue');
+  assert.equal(agg.matches[1].pointsFor, 55);
+  assert.equal(agg.matches[1].pointsAgainst, 40);
+  assert.equal(agg.matches[2].opponent, 'Other Club');
+  assert.equal(agg.matches[2].pointsFor, 60);
+  assert.equal(agg.matches[3].opponent, 'Drogheda Wolves');
+  assert.equal(agg.pointsFor, 114 + 55 + 60 + 70);
+  const onlyPlain = aggregateTeam([{ id: 'plain', extraction: plain }], findEannaKey([{ extraction: plain }]));
+  assert.deepEqual(onlyPlain.matches.map((m) => m.id), ['plain']);
+  assert.equal(findEannaKey([{ extraction: plain }]), 'eanna');
 });
 
 test('entiende formatos de fecha habituales', () => {
