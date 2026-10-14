@@ -800,6 +800,7 @@ function gameSummaryHtml(box, teamIndex) {
     else if (team.finalScore < line.points) result = 'L';
     else result = 'T';
   }
+  const quarters = line?.quarters || [null, null, null, null];
   const rows = [
     ['Result', result],
     ['Points for', String(team.finalScore)],
@@ -807,6 +808,10 @@ function gameSummaryHtml(box, teamIndex) {
     ['3PM for', favor(team.totals.fg3, 3)],
     ['FTM for', favor(team.totals.ftm, 1)],
     ['Points against', against(line?.points)],
+    ['Q1 against', against(quarters[0])],
+    ['Q2 against', against(quarters[1])],
+    ['Q3 against', against(quarters[2])],
+    ['Q4 against', against(quarters[3])],
     ['2PM against', against(line?.fg2)],
     ['3PM against', against(line?.fg3)],
     ['FTM against', against(line?.ftm)],
