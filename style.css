@@ -104,6 +104,7 @@ table.box tr.off { background: var(--off) !important; }
 table.box tfoot td { background: var(--ink); color: #fff; font-weight: 700; border: 0; }
 table.box tfoot tr.against td { background: #EEF2FF; color: var(--ink); font-weight: 600; }
 table.box tfoot td:nth-child(2) { text-align: left; }
+table.game-facts td.name { font-weight: 600; }
 .chip { display: inline-block; min-width: 34px; padding: 3px 6px; border-radius: 7px; background: #EEF0F3; font-weight: 700; font-size: 13px; }
 tr.off .chip { background: #F6E3C1; }
 .notes { color: var(--muted); font-size: 13px; padding-left: 18px; }

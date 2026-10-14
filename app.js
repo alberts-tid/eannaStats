@@ -786,6 +786,40 @@ function readingGame() {
   return state.games.find((g) => g.id === state.readingId) || null;
 }
 
+function gameSummaryHtml(box, teamIndex) {
+  const team = box.teams[teamIndex];
+  if (!team) return '';
+  const other = box.teams.find((_, i) => i !== teamIndex);
+  const line = opponentLine(other);
+  const shots = !!team.hasScoring;
+  const favor = (count, each) => (shots ? `${count} · ${count * each} pts` : '—');
+  const against = (v) => (v === null || v === undefined ? '—' : String(v));
+  let result = '—';
+  if (line && Number.isFinite(line.points)) {
+    if (team.finalScore > line.points) result = 'G';
+    else if (team.finalScore < line.points) result = 'P';
+    else result = 'E';
+  }
+  const rows = [
+    ['Resultado', result],
+    ['Puntos a favor', String(team.finalScore)],
+    ['Tiros de 2 a favor', favor(team.totals.fg2, 2)],
+    ['Tiros de 3 a favor', favor(team.totals.fg3, 3)],
+    ['Tiros de 1 a favor', favor(team.totals.ftm, 1)],
+    ['Puntos en contra', against(line?.points)],
+    ['Tiros de 2 en contra', against(line?.fg2)],
+    ['Tiros de 3 en contra', against(line?.fg3)],
+    ['Tiros de 1 en contra', against(line?.ftm)],
+    ['Faltas en contra', against(line?.fouls)],
+  ];
+  return `
+    <h3>Este partido</h3>
+    <table class="box game-facts">
+      <thead><tr><th class="left">Concepto</th><th>Valor</th></tr></thead>
+      <tbody>${rows.map(([k, v]) => `<tr><td class="name">${esc(k)}</td><td>${esc(v)}</td></tr>`).join('')}</tbody>
+    </table>`;
+}
+
 function renderPublicDetail() {
   const host = $('public-game');
   const game = readingGame();
@@ -800,6 +834,7 @@ function renderPublicDetail() {
   $('public-name').textContent = team?.name || 'Éanna';
   $('public-sub').textContent = gameSubtitle(box, state.readTeam);
   $('public-score').textContent = scoreLine(box, state.readTeam);
+  $('public-summary').innerHTML = gameSummaryHtml(box, state.readTeam);
   $('public-table').innerHTML = boxTableHtml(box, state.readTeam, { against: false });
   const manage = canManage(game);
   $('btn-edit-game').hidden = !manage;
