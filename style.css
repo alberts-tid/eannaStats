@@ -124,20 +124,23 @@ tr.off .chip { background: #F6E3C1; }
   content: ""; position: absolute; left: 2px; right: 2px; top: 50%; height: 0;
   border-top: 1.5px solid #9B2C2C; transform: rotate(-32deg); pointer-events: none;
 }
-.rs-jersey { width: 34px; }
+.rs-jersey { width: 88px; min-width: 88px; padding: 4px 8px; }
 .rs-jersey.bad { background: #FFF8EC; }
-.sheet-run .run-player { position: relative; width: 32px; height: 24px; margin: 1px auto; }
-.sheet-run .run-jersey {
-  position: relative; z-index: 1; display: block; width: 26px; height: 20px; margin: 2px auto;
-  font: inherit; font-weight: 700; font-variant-numeric: tabular-nums; text-align: center;
-  color: var(--ink); background: transparent; border: 0; border-radius: 999px; padding: 0;
+.sheet-run .run-player { position: relative; width: 100%; height: 30px; margin: 0; }
+.advanced .sheet-run input.run-jersey {
+  position: relative; z-index: 1; display: block; width: 100%; max-width: none; height: 28px; margin: 0;
+  font: inherit; font-size: 15px; font-weight: 700; font-variant-numeric: tabular-nums; text-align: center;
+  color: var(--ink); background: #fff; border: 1px solid #8E887C; border-radius: 4px;
+  box-shadow: inset 0 1px 2px rgba(17, 19, 24, .08); padding: 2px 8px;
 }
+.advanced .sheet-run input.run-jersey:hover { border-color: #5C574E; }
+.advanced .sheet-run input.run-jersey:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px rgba(232, 163, 23, .45); }
 .sheet-run .run-three {
   position: absolute; inset: 0; border-radius: 999px; border: 1.5px solid transparent; background: transparent;
   cursor: pointer; padding: 0;
 }
 .sheet-run .run-player:hover .run-three { border-color: #C9C3B6; }
-.sheet-run .run-player.circled .run-three { border: 2px solid var(--ink); }
+.sheet-run .run-player.circled .run-three { border: 2.5px solid var(--ink); }
 .rs-photo { background: #F4F1EA; padding: 1px 2px; }
 .run-photo { display: block; height: 34px; width: auto; }
 .rs-doubt {
@@ -152,9 +155,8 @@ tr.off .chip { background: #F6E3C1; }
   .game-head { flex-direction: column; align-items: flex-start; gap: 6px; }
   .game-score { font-size: 28px; }
   .login input { width: 100%; }
-  .sheet-run .run-player { width: 28px; height: 22px; }
-  .sheet-run .run-jersey { width: 22px; height: 18px; font-size: 12px; }
-  .rs-num { width: 24px; min-width: 24px; }
+  .rs-jersey { width: 76px; min-width: 76px; padding: 3px 6px; }
+  .advanced .sheet-run input.run-jersey { height: 26px; font-size: 14px; padding: 2px 6px; }
 }
 
 .views-nav { display: flex; gap: 6px; margin-top: 16px; }
