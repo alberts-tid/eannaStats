@@ -9,8 +9,11 @@ import {
   getAI, getGenerativeModel, GoogleAIBackend, Schema, ThinkingLevel,
 } from 'https://www.gstatic.com/firebasejs/13.0.0/firebase-ai.js';
 import {
-  computeBoxScore, aggregateTeam, teamKey, teamMatches, findEannaKey, opponentLine, QUARTER_LABELS,
+  computeBoxScore, aggregateTeam, teamKey, teamMatches, findEannaKey, opponentLine, isEannaName, QUARTER_LABELS,
 } from './boxscore.js';
+import {
+  absentFromSheet, applyRoster, jerseyKey, rosterContext, rosterFromGames, rosterRows, withListEdits,
+} from './roster.js';
 import { initStore, listGames, saveGame, deleteGame } from './store.js';
 import { EXTRACTION_PROMPT, buildResponseSchema } from './prompt.js';
 import { renderBoxScoreCanvas, playerLabel, defaultNotes } from './render.js';
@@ -58,6 +61,7 @@ const state = {
   view: 'games',
   readingId: null,
   readTeam: 0,
+  listEdits: new Map(),
 };
 
 const ADMIN_EMAIL = 'albertsinfreu@gmail.com';
@@ -322,6 +326,7 @@ async function loadDemo() {
 function setExtraction(extraction, { savedId = null } = {}) {
   state.extraction = extraction;
   state.currentId = savedId;
+  state.listEdits = new Map();
   const teams = extraction.teams || [];
   const selected = teams.findIndex((t) => state.teamKey && teamMatches(t.name, state.teamKey));
   const firstWithScoring = teams.findIndex((t) => (t.scoring || []).length);
@@ -334,9 +339,31 @@ function setExtraction(extraction, { savedId = null } = {}) {
   recompute();
 }
 
+function eannaSide(extraction) {
+  return (extraction?.teams || []).find((t) => isEannaName(t.name)) || null;
+}
+
+function liveRoster() {
+  const ctx = rosterContext(state.games, state.extraction, state.currentId);
+  return ctx.source ? ctx : withListEdits(ctx, state.listEdits);
+}
+
 function recompute() {
-  state.box = computeBoxScore(state.extraction);
+  const roster = liveRoster();
+  const extraction = roster.source ? state.extraction : applyRoster(state.extraction, roster);
+  state.box = computeBoxScore(extraction);
   renderResults();
+}
+
+function publicExtraction(game) {
+  if (!game?.extraction) return null;
+  return applyRoster(game.extraction, rosterFromGames(state.games));
+}
+
+function gamesForDisplay(games) {
+  const roster = rosterFromGames(games);
+  if (!roster?.players?.length) return games;
+  return games.map((g) => ({ ...g, extraction: applyRoster(g.extraction, roster) }));
 }
 
 function againstFoot(box, teamIndex = state.teamIndex) {
@@ -407,7 +434,94 @@ function renderResults() {
   $('game-sub').textContent = gameSubtitle(box);
   $('game-score').textContent = scoreLine(box);
   $('table-wrap').innerHTML = boxTableHtml(box, state.teamIndex);
+  renderRoster();
   renderEditor();
+}
+
+function renderRoster() {
+  const host = $('roster');
+  const help = $('roster-help');
+  const absent = $('roster-absent');
+  const team = eannaSide(state.extraction);
+  if (!host) return;
+  if (!team) {
+    host.innerHTML = '<p class="muted">Éanna is not on this scoresheet.</p>';
+    if (absent) absent.hidden = true;
+    $('btn-add-player').hidden = true;
+    return;
+  }
+  $('btn-add-player').hidden = false;
+  const ctx = rosterContext(state.games, state.extraction, state.currentId);
+  const list = ctx.source ? null : withListEdits(ctx, state.listEdits);
+  const rows = rosterRows(team.players, list ? list.players : []);
+  const when = ctx.dateLabel || ctx.date;
+  help.textContent = ctx.source
+    ? 'This scoresheet is the player list. Jersey numbers stay the same, and these names are the ones shown on every game.'
+    : `The player list comes from the first scoresheet${when ? ` (${when})` : ''}. The middle column is what was read here. Games show the list, so correct either name.`;
+  const head = ctx.source
+    ? '<th>Jersey</th><th class="left">Name</th><th class="left">Doubt</th>'
+    : '<th>Jersey</th><th class="left">Name on this sheet</th><th class="left">Name on the list</th><th class="left">Doubt</th>';
+  const body = (team.players || []).map((p, i) => {
+    const row = rows[i];
+    const listCell = ctx.source ? '' : `<td class="rs-list">
+      <input type="text" class="roster-list" data-jersey="${esc(row.number)}" value="${esc(row.listName)}" aria-label="List name for jersey ${esc(row.number || 'blank')}" ${row.number ? '' : 'disabled'}>
+    </td>`;
+    return `<tr>
+      <td class="rs-jersey${row.jerseyDoubt ? ' bad' : ''}">
+        <input type="text" class="roster-jersey" data-i="${i}" data-jersey="${esc(row.number)}" value="${esc(p.number || '')}" aria-label="Jersey" inputmode="numeric">
+      </td>
+      <td class="rs-name${row.nameDoubt ? ' bad' : ''}">
+        <input type="text" class="roster-name" data-i="${i}" value="${esc(p.name || '')}" aria-label="Name on this sheet">
+      </td>
+      ${listCell}
+      <td class="rs-doubt">${row.doubts.map((d) => esc(d)).join('<br>')}</td>
+    </tr>`;
+  }).join('');
+  host.innerHTML = `
+    <div class="roster">
+      <table class="sheet-roster">
+        <caption>Éanna${team.name ? ` · ${esc(team.name)}` : ''}</caption>
+        <thead><tr>${head}</tr></thead>
+        <tbody>${body || `<tr><td colspan="${ctx.source ? 3 : 4}" class="rs-doubt">No players read yet.</td></tr>`}</tbody>
+      </table>
+    </div>`;
+  const missing = ctx.source ? [] : absentFromSheet(team.players, list?.players || []);
+  if (missing.length) {
+    absent.hidden = false;
+    absent.textContent = `Not on this scoresheet: ${missing.map((p) => `#${p.number} ${p.name}`).join(', ')}.`;
+  } else absent.hidden = true;
+  host.querySelectorAll('.roster-jersey').forEach((input) => {
+    input.addEventListener('change', () => {
+      const player = team.players[+input.dataset.i];
+      if (!player) return;
+      const prev = jerseyKey(input.dataset.jersey);
+      const next = jerseyKey(input.value);
+      if (prev && next && prev !== next && state.listEdits.has(prev)) {
+        state.listEdits.set(next, state.listEdits.get(prev));
+        state.listEdits.delete(prev);
+      }
+      player.number = input.value.trim();
+      syncJson();
+    });
+  });
+  host.querySelectorAll('.roster-name').forEach((input) => {
+    input.addEventListener('change', () => {
+      const player = team.players[+input.dataset.i];
+      if (!player) return;
+      player.name = input.value.trim();
+      syncJson();
+    });
+  });
+  host.querySelectorAll('.roster-list').forEach((input) => {
+    input.addEventListener('change', () => {
+      const key = jerseyKey(input.dataset.jersey);
+      if (!key) return;
+      const value = input.value.trim();
+      if (value) state.listEdits.set(key, value);
+      else state.listEdits.delete(key);
+      syncJson();
+    });
+  });
 }
 
 function mentionsToken(text, token) {
@@ -570,6 +684,14 @@ function syncJson() {
   recompute();
 }
 
+$('btn-add-player').addEventListener('click', () => {
+  const team = eannaSide(state.extraction);
+  if (!team) return;
+  team.players = team.players || [];
+  team.players.push({ number: '', name: '', fouls: 0, played: false });
+  syncJson();
+});
+
 $('btn-add-event').addEventListener('click', () => {
   const teams = state.extraction?.teams || [];
   const home = teams.find((team) => team.side !== 'B') || teams[0];
@@ -668,6 +790,7 @@ $('btn-save').addEventListener('click', async () => {
   btn.disabled = true;
   setSaveStatus('Saving…');
   try {
+    const rosterMsg = await saveRosterList();
     const wasNew = !state.currentId;
     const id = await saveGame(state.extraction, state.user, state.currentId);
     state.currentId = id;
@@ -675,7 +798,8 @@ $('btn-save').addEventListener('click', async () => {
     if (team?.name && !state.teamKey) setTeam(teamKey(team.name));
     await refreshGames();
     updateSavedBanner();
-    setSaveStatus(wasNew ? 'Game saved. It now counts in “Games” and “Season”.' : 'Changes saved.', 'ok');
+    const saved = wasNew ? 'Game saved. It now counts in “Games” and “Season”.' : 'Changes saved.';
+    setSaveStatus(rosterMsg ? `${rosterMsg} ${saved}` : saved, 'ok');
   } catch (err) {
     console.error(err);
     setSaveStatus(/permission/i.test(String(err?.code || err?.message))
@@ -720,6 +844,46 @@ $('btn-new').addEventListener('click', () => {
   window.scrollTo({ top: 0, behavior: 'smooth' });
 });
 
+async function saveRosterList() {
+  const ctx = rosterContext(state.games, state.extraction, state.currentId);
+  if (ctx.source || !ctx.hasEanna || !state.listEdits.size) return '';
+  const merged = withListEdits(ctx, state.listEdits);
+  const before = new Map(ctx.players.map((p) => [p.number, p.name]));
+  let changed = before.size !== merged.players.length;
+  if (!changed) {
+    for (const p of merged.players) if (before.get(p.number) !== p.name) changed = true;
+  }
+  if (!changed) return '';
+  const sourceGame = state.games.find((g) => g.id === ctx.id);
+  if (!sourceGame || !canManage(sourceGame)) {
+    throw new Error('The player list is on the first scoresheet, and this account cannot change it.');
+  }
+  const copy = structuredClone(sourceGame.extraction);
+  const team = eannaSide(copy);
+  if (!team) throw new Error('Éanna is not on the first scoresheet.');
+  team.players = team.players || [];
+  const names = new Map(merged.players.map((p) => [p.number, p.name]));
+  const have = new Set();
+  for (const p of team.players) {
+    const num = jerseyKey(p.number);
+    if (!num || !names.has(num)) continue;
+    have.add(num);
+    p.name = names.get(num);
+  }
+  for (const [num, name] of names) {
+    if (!have.has(num)) team.players.push({ number: num, name, fouls: 0, played: false });
+  }
+  await saveGame(copy, state.user, ctx.id);
+  const current = eannaSide(state.extraction);
+  for (const p of current?.players || []) {
+    const num = jerseyKey(p.number);
+    if (num && names.has(num)) p.name = names.get(num);
+  }
+  state.listEdits = new Map();
+  recompute();
+  return 'Player list updated.';
+}
+
 function eannaIndex(box) {
   const key = findEannaKey([{ extraction: { teams: box.teams || [] } }]);
   const idx = (box.teams || []).findIndex((t) => teamMatches(t.name, key));
@@ -730,7 +894,7 @@ function showGame(id) {
   const game = state.games.find((g) => g.id === id);
   if (!game?.extraction) return;
   state.readingId = id;
-  state.readTeam = eannaIndex(computeBoxScore(game.extraction));
+  state.readTeam = eannaIndex(computeBoxScore(publicExtraction(game)));
   setView('games');
   $('public-game').scrollIntoView({ behavior: 'smooth', block: 'start' });
 }
@@ -833,7 +997,7 @@ function renderPublicDetail() {
     return;
   }
   host.hidden = false;
-  const box = computeBoxScore(game.extraction);
+  const box = computeBoxScore(publicExtraction(game));
   state.readTeam = eannaIndex(box);
   const team = box.teams[state.readTeam];
   $('public-name').textContent = team?.name || 'Éanna';
@@ -853,11 +1017,11 @@ $('btn-close-game').addEventListener('click', () => {
 $('btn-edit-game').addEventListener('click', () => editGame(state.readingId));
 $('btn-public-jpg').addEventListener('click', () => {
   const game = readingGame();
-  if (game?.extraction) downloadJpg(computeBoxScore(game.extraction), state.readTeam, { against: false });
+  if (game?.extraction) downloadJpg(computeBoxScore(publicExtraction(game)), state.readTeam, { against: false });
 });
 $('btn-public-csv').addEventListener('click', () => {
   const game = readingGame();
-  if (game?.extraction) downloadCsv(computeBoxScore(game.extraction), state.readTeam, { against: false });
+  if (game?.extraction) downloadCsv(computeBoxScore(publicExtraction(game)), state.readTeam, { against: false });
 });
 
 function renderSaved() {
@@ -876,13 +1040,15 @@ function renderSaved() {
     $('totals-games').innerHTML = '';
     $('totals-players').innerHTML = msg;
     renderPublicDetail();
+    if (state.extraction) recompute();
     return;
   }
 
-  const agg = aggregateTeam(state.games, key);
+  const agg = aggregateTeam(gamesForDisplay(state.games), key);
   renderGamesList(agg);
   renderTotals(agg);
   renderPublicDetail();
+  if (state.extraction) recompute();
 }
 
 function resultBadge(m) {

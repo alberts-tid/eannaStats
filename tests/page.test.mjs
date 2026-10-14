@@ -35,3 +35,12 @@ test('el marcador leído es una columna de running score', () => {
   assert.match(html, /photo of that line/);
   assert.doesNotMatch(html, /id="warnings"/);
 });
+
+test('la lista de Éanna se corrige encima del marcador', () => {
+  assert.match(html, /Éanna players/);
+  assert.match(html, /id="roster"/);
+  assert.match(html, /Add player/);
+  assert.match(html, /first scoresheet is the player list/);
+  const results = html.slice(html.indexOf('id="results"'), html.indexOf('id="view-games"'));
+  assert.ok(results.indexOf('id="roster"') < results.indexOf('id="editor"'));
+});

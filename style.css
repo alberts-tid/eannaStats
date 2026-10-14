@@ -152,12 +152,35 @@ tr.off .chip { background: #F6E3C1; }
 .running-extra { margin: 0; padding: 10px 12px 12px; background: #FFF7E6; color: #7A4E00; font-size: 13px; }
 .running-extra li { margin: 4px 0; }
 
+.roster { margin: 12px 0; border: 1px solid #1A1A1A; background: #fff; overflow-x: auto; }
+.sheet-roster { border-collapse: collapse; width: max-content; min-width: 100%; background: #fff; }
+.sheet-roster caption {
+  caption-side: top; text-align: center; font-size: 12px; font-weight: 700;
+  letter-spacing: .14em; text-transform: uppercase; color: var(--ink); padding: 6px 8px 4px;
+}
+.sheet-roster th, .sheet-roster td { border: 1px solid #1A1A1A; text-align: center; vertical-align: middle; padding: 0; background: #fff; }
+.sheet-roster thead th { font-size: 12px; font-weight: 700; letter-spacing: .04em; padding: 6px 8px; background: #F7F4EC; }
+.sheet-roster th.left { text-align: left; }
+.sheet-roster td.bad { background: #FFF8EC; }
+.sheet-roster .rs-name, .sheet-roster .rs-list { min-width: 180px; padding: 4px 8px; text-align: left; }
+.advanced .sheet-roster input[type="text"] {
+  display: block; width: 100%; max-width: none; margin: 0; height: 28px; padding: 2px 8px;
+  border: 1px solid #8E887C; border-radius: 4px; font: inherit; font-size: 14px;
+  color: var(--ink); background: #fff; box-shadow: inset 0 1px 2px rgba(17, 19, 24, .08);
+}
+.advanced .sheet-roster input.roster-jersey { font-weight: 700; text-align: center; font-variant-numeric: tabular-nums; }
+.advanced .sheet-roster input.roster-name,
+.advanced .sheet-roster input.roster-list { text-align: left; }
+.advanced .sheet-roster input[type="text"]:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 2px rgba(232, 163, 23, .45); }
+.roster-note { margin: 8px 0 0; color: var(--muted); font-size: 13px; }
+
 @media (max-width: 600px) {
   .game-head { flex-direction: column; align-items: flex-start; gap: 6px; }
   .game-score { font-size: 28px; }
   .login input { width: 100%; }
   .rs-jersey { width: 76px; min-width: 76px; padding: 3px 6px; }
   .advanced .sheet-run input.run-jersey { height: 26px; font-size: 14px; padding: 2px 6px; }
+  .advanced .sheet-roster input[type="text"] { height: 26px; font-size: 14px; padding: 2px 6px; }
 }
 
 .views-nav { display: flex; gap: 6px; margin-top: 16px; }
