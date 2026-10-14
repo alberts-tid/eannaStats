@@ -9,18 +9,18 @@ test('un 503 por plazo no se presenta como saturación', () => {
   assert.equal(isDeadline(new Error(DEADLINE)), true);
   assert.equal(isTransient(new Error(DEADLINE)), true);
   const text = describeAiError(new Error(DEADLINE));
-  assert.match(text, /no terminó a tiempo/);
-  assert.match(text, /no es un fallo de saldo/);
-  assert.doesNotMatch(text, /saturado/);
-  assert.match(retryMessage(new Error(DEADLINE), 1, 2), /no terminó a tiempo\. Reintentando \(1\/2\)/);
-  assert.doesNotMatch(retryMessage(new Error(DEADLINE), 1, 2), /saturado/);
+  assert.match(text, /did not finish in time/);
+  assert.match(text, /not a billing failure/);
+  assert.doesNotMatch(text, /overloaded/);
+  assert.match(retryMessage(new Error(DEADLINE), 1, 2), /did not finish in time\. Retrying \(1\/2\)/);
+  assert.doesNotMatch(retryMessage(new Error(DEADLINE), 1, 2), /overloaded/);
 });
 
 test('la saturación real sigue diciendo saturado', () => {
   const err = new Error('AI: [503 ] The model is overloaded due to high demand.');
   assert.equal(isDeadline(err), false);
-  assert.match(describeAiError(err), /Gemini está saturado/);
-  assert.match(retryMessage(err, 1, 2), /está saturado/);
+  assert.match(describeAiError(err), /Gemini is overloaded/);
+  assert.match(retryMessage(err, 1, 2), /is overloaded/);
 });
 
 test('el aviso del modal cambia cada pocos segundos y luego vuelve a empezar', () => {
@@ -37,7 +37,7 @@ test('la página muestra el modal gris con spinner', () => {
   const html = fs.readFileSync(new URL('../index.html', import.meta.url), 'utf8');
   const css = fs.readFileSync(new URL('../style.css', import.meta.url), 'utf8');
   assert.match(html, /id="busy"/);
-  assert.match(html, /Puede tardar entre 20 segundos y un par de minutos/);
+  assert.match(html, /This can take from 20 seconds to a couple of minutes/);
   assert.match(html, /class="spinner"/);
   assert.match(css, /@keyframes spin/);
   assert.match(css, /\.busy\[hidden\]\s*\{\s*display:\s*none/);

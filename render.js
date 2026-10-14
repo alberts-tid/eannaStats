@@ -216,7 +216,7 @@ export function renderBoxScoreCanvas(team, opts = {}) {
     ctx.fillStyle = C.text;
     ctx.font = font(600, 16);
     ctx.textAlign = 'left';
-    let label = `En contra${against.name ? ` · ${against.name}` : ''}`;
+    let label = `Against${against.name ? ` · ${against.name}` : ''}`;
     const maxLabel = playerW - 12;
     while (ctx.measureText(label).width > maxLabel && label.length > 12) label = `${label.slice(0, -2)}…`;
     ctx.fillText(label, x0 + padX + 4, y + againstH / 2 + 1);

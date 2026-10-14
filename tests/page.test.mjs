@@ -8,7 +8,7 @@ test('la foto va dentro del recuadro y solo hay el botón de analizar', () => {
   const drop = html.slice(html.indexOf('id="drop"'), html.indexOf('</label>'));
   assert.match(drop, /id="preview"/);
   assert.doesNotMatch(html, /id="preview-wrap"/);
-  assert.match(html, />Analizar acta</);
+  assert.match(html, />Analyze scoresheet</);
   assert.doesNotMatch(html, /btn-demo|Probar con un ejemplo|Analizar con IA/);
 });
 
@@ -17,21 +17,21 @@ test('subir y borrar actas queda tras el login; partidos y acumulado se ven sin 
   assert.match(html, /id="view-acta" class="view" hidden/);
   assert.match(html, /id="view-games" class="view"/);
   assert.doesNotMatch(html, /id="view-games" class="view" hidden/);
-  assert.match(html, /Eliminar acta/);
+  assert.match(html, /Delete scoresheet/);
   assert.match(html, /id="btn-delete-public"/);
   assert.match(html, /id="public-game"/);
   assert.match(html, /id="public-summary"/);
-  assert.match(html, /lectura pública/);
+  assert.match(html, /are public/);
   const games = html.slice(html.indexOf('id="view-games"'), html.indexOf('id="view-totals"'));
   assert.doesNotMatch(games, /team-select|public-tabs/);
   const totals = html.slice(html.indexOf('id="view-totals"'));
   assert.doesNotMatch(totals, /team-select/);
-  assert.match(totals, /Éanna · acumulado/);
+  assert.match(totals, /Éanna · season/);
 });
 
 test('el marcador leído es una columna de running score', () => {
   assert.match(html, /Running score/);
   assert.match(html, /id="editor" class="running"/);
-  assert.match(html, /línea real de la foto/);
+  assert.match(html, /photo of that line/);
   assert.doesNotMatch(html, /id="warnings"/);
 });

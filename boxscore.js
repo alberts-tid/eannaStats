@@ -67,7 +67,7 @@ export function computeTeamBoxScore(team) {
     const diff = e.total - prev;
     const doubts = [];
     if (diff <= 0) {
-      warn(doubts, `El marcador ${e.total} está repetido o fuera de orden; se ignora.`);
+      warn(doubts, `Running total ${e.total} is repeated or out of order; it is ignored.`);
       plays.push({ idx: e.idx, total: e.total, jersey: e.jersey || '?', points: diff, kind: 'SKIP', quarter: null, doubts });
       continue;
     }
@@ -80,21 +80,21 @@ export function computeTeamBoxScore(team) {
     else kind = 'OTHER';
 
     if (kind === 'OTHER') {
-      warn(doubts, `Salto de +${diff} hasta ${e.total} (dorsal ${e.jersey || '?'}): falta alguna anotación o hay un número mal leído.`);
+      warn(doubts, `Jump of +${diff} to ${e.total} (jersey ${e.jersey || '?'}): a scoring entry is missing or a number was misread.`);
     }
     if (kind === '3PT' && e.threePointer === false) {
-      warn(doubts, `El marcador ${e.total} sube +3 pero el dorsal no aparece rodeado como triple.`);
+      warn(doubts, `Running total ${e.total} goes up by 3 but the jersey is not circled as a three.`);
     }
     if (kind !== '3PT' && e.threePointer === true) {
-      warn(doubts, `El marcador ${e.total} tiene el dorsal rodeado (triple) pero sube +${diff}.`);
+      warn(doubts, `Running total ${e.total} has a circled jersey (three) but only goes up by +${diff}.`);
     }
     if (kind === 'FT' && e.freeThrow === false) {
-      warn(doubts, `El marcador ${e.total} sube +1 pero no está marcado como tiro libre.`);
+      warn(doubts, `Running total ${e.total} goes up by 1 but is not marked as a free throw.`);
     }
 
     let jersey = e.jersey;
     if (!jersey) {
-      warn(doubts, `El marcador ${e.total} no tiene dorsal legible.`);
+      warn(doubts, `Running total ${e.total} has no readable jersey.`);
       jersey = '?';
     }
     if (!lines.has(jersey)) {
@@ -114,7 +114,7 @@ export function computeTeamBoxScore(team) {
   const counted = plays.some((p) => p.kind !== 'SKIP');
   for (const line of lines.values()) {
     if (!line.onRoster && line.pts > 0) {
-      const msg = `El dorsal ${line.number} anota ${line.pts} puntos pero no figura en la lista de jugadores.`;
+      const msg = `Jersey ${line.number} scores ${line.pts} points but is not on the roster.`;
       warnings.push(msg);
       const play = plays.find((p) => p.kind !== 'SKIP' && p.jersey === line.number);
       if (play) play.doubts.push(msg);
@@ -124,12 +124,12 @@ export function computeTeamBoxScore(team) {
   const finalScore = Number.isFinite(+team.finalScore) && +team.finalScore > 0 ? +team.finalScore : null;
   const computedTotal = prev;
   if (counted && finalScore !== null && finalScore !== computedTotal) {
-    warnings.push(`La suma del marcador corrido da ${computedTotal}, pero el resultado final leído es ${finalScore}.`);
+    warnings.push(`The running score adds up to ${computedTotal}, but the final score read is ${finalScore}.`);
   }
   const reportedQ = Array.isArray(team.quarterScores) ? team.quarterScores.map((v) => parseInt(v, 10)) : [];
   reportedQ.slice(0, 4).forEach((v, i) => {
     if (counted && Number.isFinite(v) && v !== quarterTotals[i]) {
-      const msg = `${QUARTER_LABELS[i]}: el acta indica ${v} puntos y los marcados suman ${quarterTotals[i]}.`;
+      const msg = `${QUARTER_LABELS[i]}: the scoresheet says ${v} points and the marked entries add up to ${quarterTotals[i]}.`;
       warnings.push(msg);
       const end = quarterEnds[i];
       const play = plays.find((p) => p.kind !== 'SKIP' && p.quarter === i && p.total === end);
@@ -180,7 +180,7 @@ function deriveQuarterEnds(team, events, warnings) {
   if (ends.length >= 1) {
     const sorted = [...ends].sort((a, b) => a - b);
     if (sorted.some((v, i) => v !== ends[i])) {
-      warnings.push('Los finales de cuarto no están en orden creciente; se han ordenado.');
+      warnings.push('Quarter-end totals are not in ascending order; they have been sorted.');
     }
     return sorted.slice(0, 4).concat(Array(Math.max(0, 4 - sorted.length)).fill(Infinity));
   }
@@ -192,7 +192,7 @@ function deriveQuarterEnds(team, events, warnings) {
     return out;
   }
   if (events.length) {
-    warnings.push('No se han encontrado los finales de cuarto; todos los puntos van a Q1.');
+    warnings.push('Quarter endings were not found; all points go to Q1.');
   }
   return [Infinity, Infinity, Infinity, Infinity];
 }

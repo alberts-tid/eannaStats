@@ -74,8 +74,8 @@ function setStatus(msg, kind = 'info') {
 }
 
 function slugify(name) {
-  return (name || 'equipo').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
-    .replace(/[^\w]+/g, '-').replace(/^-|-$/g, '').toLowerCase() || 'equipo';
+  return (name || 'team').normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^\w]+/g, '-').replace(/^-|-$/g, '').toLowerCase() || 'team';
 }
 
 function esc(s) {
@@ -101,7 +101,7 @@ $('login-form').addEventListener('submit', async (ev) => {
   try {
     await signInWithEmailAndPassword(auth, $('login-email').value.trim(), $('login-password').value);
   } catch (err) {
-    $('login-error').textContent = 'No se ha podido entrar: revisa el email y la contraseña.';
+    $('login-error').textContent = 'Could not sign in: check the email and password.';
     console.error(err);
   }
 });
@@ -111,15 +111,15 @@ $('btn-logout').addEventListener('click', () => signOut(auth));
 function updateAnalyzeButton() {
   $('btn-analyze').disabled = !(state.user && state.image);
   const hint = !state.user
-    ? 'Inicia sesión para analizar el acta.'
-    : (!state.image ? 'Sube primero una foto del acta.' : '');
+    ? 'Sign in to analyze the scoresheet.'
+    : (!state.image ? 'Upload a scoresheet photo first.' : '');
   $('analyze-hint').textContent = hint;
   $('analyze-hint').hidden = !hint;
 }
 
 async function loadImage(file) {
   if (!file || !file.type.startsWith('image/')) {
-    setStatus('El archivo no es una imagen.', 'error');
+    setStatus('The file is not an image.', 'error');
     return;
   }
   const url = URL.createObjectURL(file);
@@ -138,7 +138,7 @@ async function loadImage(file) {
   $('preview').hidden = false;
   $('drop-empty').hidden = true;
   $('drop').classList.add('has-file');
-  $('drop').title = 'Cambiar foto';
+  $('drop').title = 'Change photo';
   setStatus('');
   updateAnalyzeButton();
   if (state.extraction && !state.currentId) {
@@ -240,12 +240,12 @@ let busyTimer = null;
 function showBusy() {
   $('busy').hidden = false;
   document.body.classList.add('busy-open');
-  $('busy-title').textContent = 'Analizando el acta con IA';
+  $('busy-title').textContent = 'Analyzing the scoresheet with AI';
   $('busy-detail').dataset.locked = '';
   const started = Date.now();
   const tick = () => {
     const seconds = Math.round((Date.now() - started) / 1000);
-    $('busy-elapsed').textContent = `Tiempo transcurrido: ${seconds} s`;
+    $('busy-elapsed').textContent = `Elapsed time: ${seconds} s`;
     if (!$('busy-detail').dataset.locked) $('busy-detail').textContent = busyNote(seconds);
   };
   tick();
@@ -302,7 +302,7 @@ $('btn-analyze').addEventListener('click', async () => {
   try {
     const extraction = await analyze();
     setExtraction(extraction);
-    setStatus('Acta analizada. Revisa los avisos y corrige dorsales si hace falta.', 'ok');
+    setStatus('Scoresheet analyzed. Review the warnings and correct jerseys if needed.', 'ok');
   } catch (err) {
     console.error(err);
     setStatus(describeAiError(err, $('model').value.trim() || DEFAULT_MODEL), 'error');
@@ -315,7 +315,7 @@ $('btn-analyze').addEventListener('click', async () => {
 async function loadDemo() {
   const res = await fetch('fixtures/eanna-drogheda.json');
   setExtraction(await res.json());
-  setStatus('Ejemplo cargado (Éanna BC vs Drogheda Wolves), sin llamar a la IA.', 'ok');
+  setStatus('Example loaded (Éanna BC vs Drogheda Wolves), without calling the AI.', 'ok');
 }
 
 // ---------- Results ----------
@@ -345,7 +345,7 @@ function againstFoot(box, teamIndex = state.teamIndex) {
   if (!line) return '';
   const num = (v) => (v === null || v === undefined ? '—' : v);
   const quarters = line.quarters || [null, null, null, null];
-  const label = `En contra${line.name ? ` · ${line.name}` : ''}`;
+  const label = `Against${line.name ? ` · ${line.name}` : ''}`;
   return `<tr class="against"><td></td><td>${esc(label)}</td>${[line.points, line.fg2, line.fg3, line.ftm, line.fouls, ...quarters].map((v) => `<td>${num(v)}</td>`).join('')}</tr>`;
 }
 
@@ -366,7 +366,7 @@ function scoreLine(box, teamIndex = state.teamIndex) {
 function boxTableHtml(box, teamIndex, { against = true } = {}) {
   const team = box.teams[teamIndex];
   if (!team) return '';
-  if (!team.hasScoring) return '<p class="muted">No se ha leído ninguna anotación de este equipo en el marcador.</p>';
+  if (!team.hasScoring) return '<p class="muted">No scoring entries were read for this team.</p>';
   const head = ['#', 'Player', 'PTS', '2PM', '3PM', 'FTM', 'Fouls', ...QUARTER_LABELS];
   const num = (v) => (v === null || v === undefined ? '—' : v);
   const cls = (v) => (v === 0 ? 'zero' : '');
@@ -403,7 +403,7 @@ function renderResults() {
 
   const team = box.teams[state.teamIndex];
   if (!team) return;
-  $('game-title').textContent = team.name || 'Equipo';
+  $('game-title').textContent = team.name || 'Team';
   $('game-sub').textContent = gameSubtitle(box);
   $('game-score').textContent = scoreLine(box);
   $('table-wrap').innerHTML = boxTableHtml(box, state.teamIndex);
@@ -447,8 +447,8 @@ function renderEditor() {
   const allPlays = playByTotal.flatMap((map) => [...map.values()]);
   for (const note of notes) {
     const hit = allPlays.find((p) => mentionsToken(note, p.total) || (p.jersey && p.jersey !== '?' && mentionsToken(note, p.jersey)));
-    if (hit) hit.doubts.push(`IA: ${note}`);
-    else leftoverNotes.push(`IA: ${note}`);
+    if (hit) hit.doubts.push(`AI: ${note}`);
+    else leftoverNotes.push(`AI: ${note}`);
   }
   const used = new Set(allPlays.flatMap((p) => p.doubts));
   const general = [
@@ -483,11 +483,11 @@ function renderEditor() {
     const end = quarterMark(play, box);
     const bad = play && (play.doubts.length || play.kind === 'OTHER' || play.kind === 'SKIP');
     const side = team.side === 'B' ? 'B' : 'A';
-    const name = team.name || `Equipo ${i + 1}`;
+    const name = team.name || `Team ${i + 1}`;
     return `<td class="rs-jersey${bad ? ' bad' : ''}${end ? ' end' : ''}">
       <div class="run-player${entry?.threePointer ? ' circled' : ''}">
-        <input type="text" class="run-jersey" data-team="${i}" data-total="${total}" value="${esc(entry?.jersey || '')}" aria-label="Dorsal ${side} ${total} de ${esc(name)}" inputmode="numeric">
-        <button type="button" class="run-three" data-team="${i}" data-total="${total}" aria-pressed="${entry?.threePointer ? 'true' : 'false'}" aria-label="Dorsal rodeado: triple" title="Dorsal rodeado: triple"></button>
+        <input type="text" class="run-jersey" data-team="${i}" data-total="${total}" value="${esc(entry?.jersey || '')}" aria-label="Jersey ${side} ${total} for ${esc(name)}" inputmode="numeric">
+        <button type="button" class="run-three" data-team="${i}" data-total="${total}" aria-pressed="${entry?.threePointer ? 'true' : 'false'}" aria-label="Circled jersey: three" title="Circled jersey: three"></button>
       </div>
     </td>`;
   };
@@ -495,10 +495,10 @@ function renderEditor() {
     const play = slot?.plays?.get(total);
     const end = quarterMark(play, slot?.box);
     const slash = play && (play.kind === '2PT' || play.kind === '3PT');
-    return `<td class="rs-num${split ? ' split' : ''}${slash ? ' slash' : ''}${end ? ' end' : ''}"${end ? ` title="Fin de ${end}"` : ''}>${total}</td>`;
+    return `<td class="rs-num${split ? ' split' : ''}${slash ? ' slash' : ''}${end ? ' end' : ''}"${end ? ` title="End of ${end}"` : ''}>${total}</td>`;
   };
-  const aName = teamA?.team.name || 'Equipo A';
-  const bName = teamB?.team.name || 'Equipo B';
+  const aName = teamA?.team.name || 'Team A';
+  const bName = teamB?.team.name || 'Team B';
   const body = Array.from({ length: lastTotal }, (_, i) => {
     const total = i + 1;
     const doubts = placed.flatMap(({ team, plays }) => {
@@ -509,7 +509,7 @@ function renderEditor() {
     });
     const block = total > 1 && (total - 1) % 40 === 0 ? ' class="block"' : '';
     return `<tr data-total="${total}"${block}>
-      ${photo ? `<td class="rs-photo"><canvas class="run-photo" aria-label="Línea del acta del marcador ${total}"></canvas></td>` : ''}
+      ${photo ? `<td class="rs-photo"><canvas class="run-photo" aria-label="Scoresheet line for running total ${total}"></canvas></td>` : ''}
       ${jerseyCell(teamA, total)}${numCell(teamA, total, false)}${numCell(teamB, total, true)}${jerseyCell(teamB, total)}
       <td class="rs-doubt">${doubts.map((d) => esc(d)).join('<br>')}</td>
     </tr>`;
@@ -525,7 +525,7 @@ function renderEditor() {
         ${photo ? '<th class="rs-photo-h"></th>' : ''}
         <th class="rs-side" colspan="2" title="${esc(aName)}">A</th>
         <th class="rs-side split" colspan="2" title="${esc(bName)}">B</th>
-        <th class="rs-doubt-h">Duda</th>
+        <th class="rs-doubt-h">Doubt</th>
       </tr></thead>
       <tbody>${body}</tbody>
     </table>
@@ -583,9 +583,9 @@ $('btn-apply-json').addEventListener('click', () => {
   try {
     state.extraction = JSON.parse($('json').value);
     recompute();
-    setStatus('JSON aplicado.', 'ok');
+    setStatus('JSON applied.', 'ok');
   } catch (err) {
-    setStatus(`JSON no válido: ${err.message}`, 'error');
+    setStatus(`Invalid JSON: ${err.message}`, 'error');
   }
 });
 
@@ -618,7 +618,7 @@ function downloadCsv(box, teamIndex, { against = true } = {}) {
   if (rival) {
     const cell = (v) => (v === null || v === undefined ? '' : v);
     const quarters = rival.quarters || [null, null, null, null];
-    lines.push(['', `En contra${rival.name ? ` · ${rival.name}` : ''}`, cell(rival.points), cell(rival.fg2), cell(rival.fg3), cell(rival.ftm), cell(rival.fouls), ...quarters.map(cell)]);
+    lines.push(['', `Against${rival.name ? ` · ${rival.name}` : ''}`, cell(rival.points), cell(rival.fg2), cell(rival.fg3), cell(rival.ftm), cell(rival.fouls), ...quarters.map(cell)]);
   }
   const csv = lines.map((l) => l.map((v) => `"${String(v).replace(/"/g, '""')}"`).join(',')).join('\n');
   const a = document.createElement('a');
@@ -646,18 +646,18 @@ function updateSavedBanner() {
   const saved = !!state.currentId;
   $('saved-banner').hidden = !saved;
   $('upload-card').hidden = saved;
-  $('results-title').textContent = saved ? 'Partido guardado' : '2. Estadísticas';
+  $('results-title').textContent = saved ? 'Saved game' : '2. Box score';
   if (saved) {
     const names = (state.extraction?.teams || []).map((t) => t.name).filter(Boolean).join(' vs ');
-    $('saved-banner-text').textContent = `Viendo ${names || 'partido'}${state.extraction?.game?.date ? ` (${state.extraction.game.date})` : ''}. Los cambios se guardan con «Guardar cambios».`;
+    $('saved-banner-text').textContent = `Viewing ${names || 'game'}${state.extraction?.game?.date ? ` (${state.extraction.game.date})` : ''}. Changes are saved with “Save changes”.`;
   }
 }
 
 function updateSaveButtons() {
   const btn = $('btn-save');
-  btn.textContent = state.currentId ? 'Guardar cambios' : 'Guardar partido';
+  btn.textContent = state.currentId ? 'Save changes' : 'Save game';
   btn.disabled = !state.user || !state.extraction;
-  btn.title = state.user ? '' : 'Inicia sesión para guardar';
+  btn.title = state.user ? '' : 'Sign in to save';
   const game = savedGame();
   $('btn-delete').hidden = !canManage(game);
 }
@@ -666,7 +666,7 @@ $('btn-save').addEventListener('click', async () => {
   if (!state.user || !state.extraction) return;
   const btn = $('btn-save');
   btn.disabled = true;
-  setSaveStatus('Guardando…');
+  setSaveStatus('Saving…');
   try {
     const wasNew = !state.currentId;
     const id = await saveGame(state.extraction, state.user, state.currentId);
@@ -675,12 +675,12 @@ $('btn-save').addEventListener('click', async () => {
     if (team?.name && !state.teamKey) setTeam(teamKey(team.name));
     await refreshGames();
     updateSavedBanner();
-    setSaveStatus(wasNew ? 'Partido guardado. Ya cuenta en «Partidos» y «Acumulado».' : 'Cambios guardados.', 'ok');
+    setSaveStatus(wasNew ? 'Game saved. It now counts in “Games” and “Season”.' : 'Changes saved.', 'ok');
   } catch (err) {
     console.error(err);
     setSaveStatus(/permission/i.test(String(err?.code || err?.message))
-      ? 'Firestore ha denegado el permiso. ¿Están desplegadas las reglas de acta_partits?'
-      : `No se ha podido guardar: ${err.message || err}`, 'error');
+      ? 'Firestore denied permission. Are the acta_partits rules deployed?'
+      : `Could not save: ${err.message || err}`, 'error');
   } finally {
     updateSaveButtons();
   }
@@ -689,7 +689,7 @@ $('btn-save').addEventListener('click', async () => {
 async function removeGame(id) {
   const game = state.games.find((g) => g.id === id);
   if (!canManage(game)) return;
-  if (!confirm('¿Eliminar este partido guardado? Dejará de contar en el acumulado.')) return;
+  if (!confirm('Delete this saved game? It will no longer count in the season totals.')) return;
   try {
     await deleteGame(id);
     if (state.currentId === id) resetToUpload();
@@ -698,7 +698,7 @@ async function removeGame(id) {
     setView('games');
   } catch (err) {
     console.error(err);
-    setSaveStatus(`No se ha podido eliminar: ${err.message || err}`, 'error');
+    setSaveStatus(`Could not delete: ${err.message || err}`, 'error');
   }
 }
 
@@ -765,7 +765,7 @@ function setTeam(key) {
 }
 
 async function refreshGames() {
-  $('games-status').textContent = 'Cargando partidos…';
+  $('games-status').textContent = 'Loading games…';
   try {
     state.games = await listGames();
     state.gamesLoaded = true;
@@ -773,8 +773,8 @@ async function refreshGames() {
   } catch (err) {
     console.error(err);
     $('games-status').textContent = /permission/i.test(String(err?.code || err?.message))
-      ? 'Los partidos no se pueden leer. Publica firestore.rules para abrir la lectura.'
-      : `No se han podido cargar los partidos: ${err.message || err}`;
+      ? 'Games cannot be read. Publish firestore.rules to allow reads.'
+      : `Could not load games: ${err.message || err}`;
   }
   renderSaved();
   updateSaveButtons();
@@ -796,26 +796,26 @@ function gameSummaryHtml(box, teamIndex) {
   const against = (v) => (v === null || v === undefined ? '—' : String(v));
   let result = '—';
   if (line && Number.isFinite(line.points)) {
-    if (team.finalScore > line.points) result = 'G';
-    else if (team.finalScore < line.points) result = 'P';
-    else result = 'E';
+    if (team.finalScore > line.points) result = 'W';
+    else if (team.finalScore < line.points) result = 'L';
+    else result = 'T';
   }
   const rows = [
-    ['Resultado', result],
-    ['Puntos a favor', String(team.finalScore)],
-    ['Tiros de 2 a favor', favor(team.totals.fg2, 2)],
-    ['Tiros de 3 a favor', favor(team.totals.fg3, 3)],
-    ['Tiros de 1 a favor', favor(team.totals.ftm, 1)],
-    ['Puntos en contra', against(line?.points)],
-    ['Tiros de 2 en contra', against(line?.fg2)],
-    ['Tiros de 3 en contra', against(line?.fg3)],
-    ['Tiros de 1 en contra', against(line?.ftm)],
-    ['Faltas en contra', against(line?.fouls)],
+    ['Result', result],
+    ['Points for', String(team.finalScore)],
+    ['2PM for', favor(team.totals.fg2, 2)],
+    ['3PM for', favor(team.totals.fg3, 3)],
+    ['FTM for', favor(team.totals.ftm, 1)],
+    ['Points against', against(line?.points)],
+    ['2PM against', against(line?.fg2)],
+    ['3PM against', against(line?.fg3)],
+    ['FTM against', against(line?.ftm)],
+    ['Fouls against', against(line?.fouls)],
   ];
   return `
-    <h3>Este partido</h3>
+    <h3>This game</h3>
     <table class="box game-facts">
-      <thead><tr><th class="left">Concepto</th><th>Valor</th></tr></thead>
+      <thead><tr><th class="left">Item</th><th>Value</th></tr></thead>
       <tbody>${rows.map(([k, v]) => `<tr><td class="name">${esc(k)}</td><td>${esc(v)}</td></tr>`).join('')}</tbody>
     </table>`;
 }
@@ -863,8 +863,8 @@ function renderSaved() {
   if (!state.games.length) {
     const msg = state.gamesLoaded
       ? (state.user
-        ? '<p class="muted">Todavía no hay partidos guardados. En «Acta» puedes analizar una y guardarla.</p>'
-        : '<p class="muted">Todavía no hay partidos guardados.</p>')
+        ? '<p class="muted">No games saved yet. In “Scoresheet” you can analyze one and save it.</p>'
+        : '<p class="muted">No games saved yet.</p>')
       : '';
     $('games-list').innerHTML = msg;
     $('totals-summary').innerHTML = '';
@@ -882,9 +882,9 @@ function renderSaved() {
 
 function resultBadge(m) {
   if (m.pointsAgainst === null) return '';
-  if (m.pointsFor > m.pointsAgainst) return '<span class="result w">G</span>';
-  if (m.pointsFor < m.pointsAgainst) return '<span class="result l">P</span>';
-  return '<span class="result">E</span>';
+  if (m.pointsFor > m.pointsAgainst) return '<span class="result w">W</span>';
+  if (m.pointsFor < m.pointsAgainst) return '<span class="result l">L</span>';
+  return '<span class="result">T</span>';
 }
 
 function renderGamesList(agg) {
@@ -893,7 +893,7 @@ function renderGamesList(agg) {
     const top = m.team.hasScoring ? m.team.rows[0] : null;
     const game = state.games.find((g) => g.id === m.id);
     const actions = canManage(game)
-      ? `<td class="row-actions"><button type="button" class="btn ghost small" data-edit="${esc(m.id)}">Editar</button><button type="button" class="btn danger small" data-del="${esc(m.id)}">Eliminar</button></td>`
+      ? `<td class="row-actions"><button type="button" class="btn ghost small" data-edit="${esc(m.id)}">Edit</button><button type="button" class="btn danger small" data-del="${esc(m.id)}">Delete</button></td>`
       : (manageable ? '<td></td>' : '');
     return `
       <tr class="clickable" data-id="${esc(m.id)}">
@@ -901,14 +901,14 @@ function renderGamesList(agg) {
         <td>${esc(m.opponent || '—')}</td>
         <td>${resultBadge(m)} <b>${m.pointsFor}</b> – ${m.pointsAgainst ?? '—'}</td>
         <td>${esc(m.competition)}</td>
-        <td>${top ? `${esc(playerLabel(top))} (${top.pts})` : '<span class="muted">solo resultado</span>'}</td>
+        <td>${top ? `${esc(playerLabel(top))} (${top.pts})` : '<span class="muted">score only</span>'}</td>
         ${actions}
       </tr>`;
   }).join('');
   const actionHead = manageable ? '<th></th>' : '';
   $('games-list').innerHTML = `
     <table class="list">
-      <thead><tr><th>Fecha</th><th>Rival</th><th>Resultado</th><th>Competición</th><th>Máximo anotador</th>${actionHead}</tr></thead>
+      <thead><tr><th>Date</th><th>Opponent</th><th>Result</th><th>Competition</th><th>Top scorer</th>${actionHead}</tr></thead>
       <tbody>${rows}</tbody>
     </table>`;
   $('games-list').querySelectorAll('tr[data-id]').forEach((tr) => tr.addEventListener('click', () => showGame(tr.dataset.id)));
@@ -923,7 +923,7 @@ function renderGamesList(agg) {
 }
 
 function againstStat(label, stat, n) {
-  const scope = stat.games && stat.games < n ? ` · ${stat.games} de ${n}` : '';
+  const scope = stat.games && stat.games < n ? ` · ${stat.games} of ${n}` : '';
   return [`${label}${scope}`, stat.games ? String(stat.total) : '—'];
 }
 
@@ -952,17 +952,17 @@ function renderGamesTable(agg) {
     </tr>`).join('');
   const quartersFor = [0, 1, 2, 3].map((i) => sumKnown(agg.matches.map((m) => q(m.quartersFor, i))));
   const quartersAgainst = [0, 1, 2, 3].map((i) => sumKnown(agg.matches.map((m) => q(m.against?.quarters, i))));
-  const sub = ['A favor', 'En contra', 'A favor', 'En contra', 'A favor', 'En contra', 'A favor', 'En contra', 'A favor', 'En contra', 'A favor', 'En contra']
+  const sub = ['For', 'Against', 'For', 'Against', 'For', 'Against', 'For', 'Against', 'For', 'Against', 'For', 'Against']
     .map((label, i) => `<th class="${i % 2 ? 'opp' : ''}">${label}</th>`).join('');
   $('totals-games').innerHTML = `
-    <h3>Por partido</h3>
+    <h3>By game</h3>
     <table class="box">
       <thead>
         <tr>
-          <th class="left" rowspan="2">Fecha</th>
-          <th class="left" rowspan="2">Rival</th>
-          <th colspan="2">Puntos</th>
-          <th colspan="2">Faltas</th>
+          <th class="left" rowspan="2">Date</th>
+          <th class="left" rowspan="2">Opponent</th>
+          <th colspan="2">Points</th>
+          <th colspan="2">Fouls</th>
           <th colspan="2">Q1</th>
           <th colspan="2">Q2</th>
           <th colspan="2">Q3</th>
@@ -981,7 +981,7 @@ function renderGamesTable(agg) {
 }
 
 function favorShot(label, stat, each, n) {
-  const scope = stat.games && stat.games < n ? ` · ${stat.games} de ${n}` : '';
+  const scope = stat.games && stat.games < n ? ` · ${stat.games} of ${n}` : '';
   const pts = stat.games ? ` · ${stat.total * each} pts` : '';
   return [`${label}${pts}${scope}`, stat.games ? String(stat.total) : '—'];
 }
@@ -989,24 +989,24 @@ function favorShot(label, stat, each, n) {
 function renderTotals(agg) {
   const n = agg.matches.length;
   const stats = [
-    ['Partidos', n],
-    ['Balance', `${agg.record.w}-${agg.record.l}`],
-    ['Puntos a favor / partido', fmt1(n ? agg.pointsFor / n : NaN)],
-    favorShot('Tiros de 2 a favor', agg.favor.fg2, 2, n),
-    favorShot('Tiros de 3 a favor', agg.favor.fg3, 3, n),
-    favorShot('Tiros de 1 a favor', agg.favor.ftm, 1, n),
-    ['Puntos en contra / partido', fmt1(n ? agg.pointsAgainst / n : NaN)],
-    againstStat('Tiros de 2 en contra', agg.against.fg2, n),
-    againstStat('Tiros de 3 en contra', agg.against.fg3, n),
-    againstStat('Tiros de 1 en contra', agg.against.ftm, n),
-    againstStat('Faltas en contra', agg.against.fouls, n),
-    ['Con estadísticas', `${agg.gamesWithStats} de ${n}`],
+    ['Games', n],
+    ['Record', `${agg.record.w}-${agg.record.l}`],
+    ['Points for / game', fmt1(n ? agg.pointsFor / n : NaN)],
+    favorShot('2PM for', agg.favor.fg2, 2, n),
+    favorShot('3PM for', agg.favor.fg3, 3, n),
+    favorShot('FTM for', agg.favor.ftm, 1, n),
+    ['Points against / game', fmt1(n ? agg.pointsAgainst / n : NaN)],
+    againstStat('2PM against', agg.against.fg2, n),
+    againstStat('3PM against', agg.against.fg3, n),
+    againstStat('FTM against', agg.against.ftm, n),
+    againstStat('Fouls against', agg.against.fouls, n),
+    ['With stats', `${agg.gamesWithStats} of ${n}`],
   ];
   $('totals-summary').innerHTML = stats.map(([k, v]) => `<div class="stat"><b>${esc(v)}</b><span>${esc(k)}</span></div>`).join('');
   renderGamesTable(agg);
 
   if (!agg.rows.length) {
-    $('totals-players').innerHTML = '<p class="muted">Ningún partido tiene marcador por jugador.</p>';
+    $('totals-players').innerHTML = '<p class="muted">No game has a player running score.</p>';
     return;
   }
   const cls = (v) => (v === 0 ? 'zero' : '');
@@ -1033,17 +1033,17 @@ function renderTotals(agg) {
   }, { pts: 0, fouls: 0, quarters: [0, 0, 0, 0] });
   const g = agg.gamesWithStats;
   $('totals-players').innerHTML = `
-    <h3>Por jugador</h3>
+    <h3>By player</h3>
     <table class="box">
       <thead><tr>
-        <th class="left">#</th><th class="left">Jugador</th><th>PJ</th>
-        <th>Faltas</th><th class="avg">F/PJ</th>
-        <th>PTS</th><th class="avg">PTS/PJ</th>
+        <th class="left">#</th><th class="left">Player</th><th>GP</th>
+        <th>Fouls</th><th class="avg">F/GP</th>
+        <th>PTS</th><th class="avg">PTS/GP</th>
         <th>Q1</th><th>Q2</th><th>Q3</th><th>Q4</th>
       </tr></thead>
       <tbody>${body}</tbody>
       <tfoot><tr>
-        <td></td><td>TOTAL (${g} ${g === 1 ? 'partido' : 'partidos'})</td><td>${g}</td>
+        <td></td><td>TOTAL (${g} ${g === 1 ? 'game' : 'games'})</td><td>${g}</td>
         <td>${t.fouls}</td><td>${g ? fmt1(t.fouls / g) : '—'}</td>
         <td>${t.pts}</td><td>${g ? fmt1(t.pts / g) : '—'}</td>
         ${t.quarters.map((q) => `<td>${q}</td>`).join('')}

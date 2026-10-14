@@ -16,9 +16,9 @@ function line(team, number) {
 test('reproduce el box score Éanna BC 114-38', () => {
   const box = computeBoxScore(fixture);
   const eanna = box.teams[0];
-  assert.deepEqual(eanna.warnings.filter((w) => !w.includes('dorsal 12')), []);
+  assert.deepEqual(eanna.warnings.filter((w) => !w.includes('Jersey 12')), []);
   const offRoster = eanna.plays.find((p) => p.jersey === '12');
-  assert.ok(offRoster.doubts.some((d) => d.includes('dorsal 12')));
+  assert.ok(offRoster.doubts.some((d) => d.includes('Jersey 12')));
   assert.deepEqual(eanna.totals.quarters, [36, 28, 22, 28]);
   assert.equal(eanna.totals.pts, 114);
   assert.equal(eanna.totals.fg2, 45);
@@ -81,15 +81,15 @@ test('avisa de saltos imposibles y de cuartos que no cuadran', () => {
   assert.equal(row.other, 4);
   assert.deepEqual(row.quarters, [6, 3, 0, 0]);
   assert.ok(team.warnings.some((w) => w.includes('+4')));
-  assert.ok(team.warnings.some((w) => w.includes('rodeado')));
+  assert.ok(team.warnings.some((w) => w.includes('circled')));
   assert.ok(team.warnings.some((w) => w.includes('Q2')));
   assert.ok(team.warnings.some((w) => w.includes('10')));
   const jump = team.plays.find((p) => p.points === 4);
   assert.ok(jump.doubts.some((d) => d.includes('+4')));
   const triple = team.plays.find((p) => p.total === 9);
-  assert.ok(triple.doubts.some((d) => d.includes('rodeado')));
-  assert.ok(team.warnings.some((w) => w.includes('resultado final')));
-  assert.equal(team.plays.flatMap((p) => p.doubts).some((d) => d.includes('resultado final')), false);
+  assert.ok(triple.doubts.some((d) => d.includes('circled')));
+  assert.ok(team.warnings.some((w) => w.includes('final score')));
+  assert.equal(team.plays.flatMap((p) => p.doubts).some((d) => d.includes('final score')), false);
 });
 
 test('ordena el marcador, ignora repetidos y normaliza dorsales', () => {
@@ -103,11 +103,11 @@ test('ordena el marcador, ignora repetidos y normaliza dorsales', () => {
     quarterScores: [3, 0, 0, 0],
   });
   assert.deepEqual(line(team, '7'), [3, 1, 0, 1, 0, 3, 0, 0, 0]);
-  assert.ok(team.warnings.some((w) => w.includes('rodeado')));
-  assert.ok(team.warnings.some((w) => w.includes('repetido')));
+  assert.ok(team.warnings.some((w) => w.includes('circled')));
+  assert.ok(team.warnings.some((w) => w.includes('repeated')));
   const skipped = team.plays.find((p) => p.kind === 'SKIP');
   assert.equal(skipped.total, 3);
-  assert.ok(skipped.doubts.some((d) => d.includes('repetido')));
+  assert.ok(skipped.doubts.some((d) => d.includes('repeated')));
 });
 
 test('acumula estadísticas por jugador entre partidos', () => {

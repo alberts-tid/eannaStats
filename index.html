@@ -1,9 +1,9 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="en">
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>Acta → estadísticas</title>
+  <title>Scoresheet → stats</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
@@ -13,66 +13,66 @@
   <header class="top">
     <div class="wrap top-inner">
       <div>
-        <h1>Acta → estadísticas</h1>
-        <p>Partidos y acumulado, en lectura pública. Subir, corregir y eliminar un acta requiere iniciar sesión.</p>
+        <h1>Scoresheet → stats</h1>
+        <p>Games and season totals are public. Uploading, correcting and deleting a scoresheet requires signing in.</p>
       </div>
       <div class="auth">
         <form id="login-form" class="login" hidden>
           <input id="login-email" type="email" placeholder="email" autocomplete="username" required>
-          <input id="login-password" type="password" placeholder="contraseña" autocomplete="current-password" required>
-          <button type="submit" class="btn">Entrar</button>
+          <input id="login-password" type="password" placeholder="password" autocomplete="current-password" required>
+          <button type="submit" class="btn">Sign in</button>
           <div id="login-error" class="error"></div>
         </form>
         <div id="user-box" class="user" hidden>
           <span id="user-email"></span>
-          <button id="btn-logout" type="button" class="btn ghost">Salir</button>
+          <button id="btn-logout" type="button" class="btn ghost">Sign out</button>
         </div>
       </div>
     </div>
   </header>
 
   <nav class="wrap views-nav">
-    <button type="button" class="view-tab" data-view="acta" id="tab-acta" hidden>Acta</button>
-    <button type="button" class="view-tab active" data-view="games">Partidos <span id="games-count" class="count"></span></button>
-    <button type="button" class="view-tab" data-view="totals">Acumulado</button>
+    <button type="button" class="view-tab" data-view="acta" id="tab-acta" hidden>Scoresheet</button>
+    <button type="button" class="view-tab active" data-view="games">Games <span id="games-count" class="count"></span></button>
+    <button type="button" class="view-tab" data-view="totals">Season</button>
   </nav>
 
   <main class="wrap">
    <div id="view-acta" class="view" hidden>
     <div id="saved-banner" class="banner" hidden>
       <span id="saved-banner-text"></span>
-      <button id="btn-new" type="button" class="btn ghost small">Nueva acta</button>
+      <button id="btn-new" type="button" class="btn ghost small">New scoresheet</button>
     </div>
     <section id="upload-card" class="card">
-      <h2>1. Foto del acta</h2>
+      <h2>1. Scoresheet photo</h2>
       <label id="drop" class="drop" for="file">
         <input id="file" type="file" accept="image/*">
         <span id="drop-empty">
-          <strong>Arrastra la imagen aquí o haz clic para elegirla</strong>
-          <span>JPG, PNG o WebP. En el móvil puedes hacer la foto directamente.</span>
+          <strong>Drop the image here or click to choose it</strong>
+          <span>JPG, PNG or WebP. On a phone you can take the photo directly.</span>
         </span>
-        <img id="preview" alt="Acta subida" hidden>
+        <img id="preview" alt="Uploaded scoresheet" hidden>
       </label>
 
       <details class="advanced">
-        <summary>Opciones</summary>
-        <label>Contexto para la IA (opcional)
-          <textarea id="hint" rows="2" placeholder="Ej.: nuestro equipo es el A (Éanna BC). El jugador 1 se llama Mark."></textarea>
+        <summary>Options</summary>
+        <label>Context for the AI (optional)
+          <textarea id="hint" rows="2" placeholder="e.g. our team is A (Éanna BC). Player 1 is Mark."></textarea>
         </label>
-        <label>Modelo Gemini
+        <label>Gemini model
           <input id="model" type="text" spellcheck="false">
         </label>
       </details>
 
       <div class="actions">
-        <button id="btn-analyze" type="button" class="btn primary" disabled>Analizar acta</button>
+        <button id="btn-analyze" type="button" class="btn primary" disabled>Analyze scoresheet</button>
       </div>
       <p id="analyze-hint" class="muted small" hidden></p>
       <div id="status" class="status" hidden></div>
     </section>
 
     <section id="results" class="card" hidden>
-      <h2 id="results-title">2. Estadísticas</h2>
+      <h2 id="results-title">2. Box score</h2>
       <div id="team-tabs" class="tabs"></div>
 
       <div class="game-head">
@@ -85,25 +85,25 @@
       <div id="table-wrap" class="table-wrap"></div>
 
       <div class="actions">
-        <button id="btn-jpg" type="button" class="btn primary">Descargar JPG</button>
-        <button id="btn-csv" type="button" class="btn ghost">Descargar CSV</button>
+        <button id="btn-jpg" type="button" class="btn primary">Download JPG</button>
+        <button id="btn-csv" type="button" class="btn ghost">Download CSV</button>
         <span class="spacer"></span>
-        <button id="btn-save" type="button" class="btn accent">Guardar partido</button>
-        <button id="btn-delete" type="button" class="btn danger" hidden>Eliminar acta</button>
+        <button id="btn-save" type="button" class="btn accent">Save game</button>
+        <button id="btn-delete" type="button" class="btn danger" hidden>Delete scoresheet</button>
       </div>
       <div id="save-status" class="status" hidden></div>
 
       <details class="advanced" open>
         <summary>Running score</summary>
-        <p class="muted small">Una sola tira vertical, sin saltarse ninguna fila del acta. Seis columnas: a la izquierda está la línea real de la foto, luego A y B, y a la derecha la duda si la hay. En A se corrige el dorsal de Éanna junto al número impreso; en B, el del rival. Si el dorsal va rodeado, es un triple.</p>
+        <p class="muted small">One vertical strip, with every scoresheet row. Six columns: the photo of that line on the left, then A and B, and the doubt on the right if there is one. In A you correct Éanna’s jersey next to the printed number; in B, the opponent’s. A circled jersey is a three-pointer.</p>
         <div id="editor" class="running"></div>
-        <button id="btn-add-event" type="button" class="btn ghost small">+ Añadir anotación</button>
+        <button id="btn-add-event" type="button" class="btn ghost small">+ Add scoring entry</button>
       </details>
 
       <details class="advanced">
-        <summary>Datos completos (JSON)</summary>
+        <summary>Full data (JSON)</summary>
         <textarea id="json" rows="14" spellcheck="false"></textarea>
-        <button id="btn-apply-json" type="button" class="btn ghost small">Aplicar JSON</button>
+        <button id="btn-apply-json" type="button" class="btn ghost small">Apply JSON</button>
       </details>
     </section>
    </div>
@@ -111,15 +111,15 @@
    <div id="view-games" class="view">
     <section class="card">
       <div class="view-head">
-        <h2>Partidos guardados</h2>
+        <h2>Saved games</h2>
       </div>
       <div id="games-status" class="muted"></div>
       <div id="games-list" class="table-wrap"></div>
     </section>
     <section id="public-game" class="card" hidden>
       <div class="view-head">
-        <h2>Partido</h2>
-        <button id="btn-close-game" type="button" class="btn ghost small">Cerrar</button>
+        <h2>Game</h2>
+        <button id="btn-close-game" type="button" class="btn ghost small">Close</button>
       </div>
       <div class="game-head">
         <div>
@@ -131,11 +131,11 @@
       <div id="public-summary" class="table-wrap"></div>
       <div id="public-table" class="table-wrap"></div>
       <div class="actions">
-        <button id="btn-public-jpg" type="button" class="btn primary">Descargar JPG</button>
-        <button id="btn-public-csv" type="button" class="btn ghost">Descargar CSV</button>
+        <button id="btn-public-jpg" type="button" class="btn primary">Download JPG</button>
+        <button id="btn-public-csv" type="button" class="btn ghost">Download CSV</button>
         <span class="spacer"></span>
-        <button id="btn-edit-game" type="button" class="btn accent" hidden>Editar acta</button>
-        <button id="btn-delete-public" type="button" class="btn danger" hidden>Eliminar acta</button>
+        <button id="btn-edit-game" type="button" class="btn accent" hidden>Edit scoresheet</button>
+        <button id="btn-delete-public" type="button" class="btn danger" hidden>Delete scoresheet</button>
       </div>
     </section>
   </div>
@@ -143,23 +143,23 @@
    <div id="view-totals" class="view" hidden>
     <section class="card">
       <div class="view-head">
-        <h2>Éanna · acumulado</h2>
+        <h2>Éanna · season</h2>
       </div>
       <div id="totals-summary" class="summary"></div>
       <div id="totals-games" class="table-wrap"></div>
       <div id="totals-players" class="table-wrap"></div>
-      <p class="muted small">La primera tabla es un partido por fila: puntos y faltas de Éanna y del rival, y los puntos de cada cuarto. La segunda es cada jugador: faltas y puntos acumulados, la media por partido jugado y los puntos por cuarto. Un «—» en contra quiere decir que ese acta no trae el dato: los puntos de cada cuarto se completan con la casilla de resultados, pero las faltas y los tiros de 2, 3 y 1 solo aparecen si se leyó la lista y el marcador corrido del rival.</p>
+      <p class="muted small">The first table is one row per game: Éanna and opponent points and fouls, and the points in each quarter. The second is each player: fouls and points, the average per game played, and points by quarter. A “—” against means that scoresheet does not include the figure: quarter points are filled from the score box, but fouls and 2s, 3s and free throws appear only when the opponent roster and running score were read.</p>
     </section>
-   </div>
+  </div>
   </main>
 
   <div id="busy" class="busy" hidden>
     <div class="busy-card" role="status" aria-live="polite" aria-busy="true">
       <div class="spinner" aria-hidden="true"></div>
-      <p id="busy-title">Analizando el acta con IA</p>
-      <p id="busy-wait">Puede tardar entre 20 segundos y un par de minutos.</p>
-      <p id="busy-detail">Enviando la foto a Gemini.</p>
-      <p id="busy-elapsed" class="muted">Tiempo transcurrido: 0 s</p>
+      <p id="busy-title">Analyzing the scoresheet with AI</p>
+      <p id="busy-wait">This can take from 20 seconds to a couple of minutes.</p>
+      <p id="busy-detail">Sending the photo to Gemini.</p>
+      <p id="busy-elapsed" class="muted">Elapsed time: 0 s</p>
     </div>
   </div>
 
